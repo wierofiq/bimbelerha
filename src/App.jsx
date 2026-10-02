@@ -10,6 +10,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('pendaftaran');
   const [adminTab, setAdminTab] = useState('siswa'); 
   const [userRole, setUserRole] = useState('guru'); // 'admin' atau 'guru'
+  const [currentMentorProfile, setCurrentMentorProfile] = useState(null); // Profil mentor yang sedang login
+
   const [paketList, setPaketList] = useState([]);
   const [selectedPaket, setSelectedPaket] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,29 @@ export default function App() {
   const [daftarPerizinan, setDaftarPerizinan] = useState([]);
   const [daftarPembayaran, setDaftarPembayaran] = useState([]);
   const [daftarPresensiMentor, setDaftarPresensiMentor] = useState([]);
+  const [daftarPenggajian, setDaftarPenggajian] = useState([]);
   const [daftarInventaris, setDaftarInventaris] = useState([]);
+
+  // Form State Admin: Mentor Baru
+  const [newMentor, setNewMentor] = useState({
+    nama_mentor: '',
+    email: '',
+    password: '',
+    no_hp: '',
+    alamat: '',
+    honor_per_jam: 25000,
+    akses_inventaris: false,
+    akses_perizinan: false,
+    status: 'aktif'
+  });
+
+  // Form State Admin: Penggajian Kustom
+  const [gajiForm, setGajiForm] = useState({
+    mentor_id: '',
+    bulan_periode: new Date().toISOString().slice(0, 7), // YYYY-MM
+    insentif: 0,
+    bonus_kinerja: 0
+  });
 
   // Form Presensi Guru
   const [newPresensiSiswa, setNewPresensiSiswa] = useState({
@@ -42,10 +66,7 @@ export default function App() {
     jurnal_materi: ''
   });
 
-  // Form Admin & Public
   const [selectedSiswaIdFilter, setSelectedSiswaIdFilter] = useState('all');
-  const [newMentor, setNewMentor] = useState({ nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 25000 });
-  const [newPresensiMentor, setNewPresensiMentor] = useState({ mentor_id: '', tanggal: new Date().toISOString().split('T')[0], jam_masuk: '08:00', jam_selesai: '10:00', total_jam: 2, kegiatan_pembelajaran: '' });
   const [newBarang, setNewBarang] = useState({ nama_barang: '', kategori: 'buku', stok: 10, harga_satuan: 15000 });
   
   const [formDaftar, setFormDaftar] = useState({
@@ -67,8 +88,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        if (session.user.email?.includes('admin')) setUserRole('admin');
-        else setUserRole('guru');
+        determineUserRoleAndProfile(session.user);
       }
       fetchAllData();
     });
@@ -76,8 +96,10 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        if (session.user.email?.includes('admin')) setUserRole('admin');
-        else setUserRole('guru');
+        determineUserRoleAndProfile(session.user);
+      } else {
+        setUserRole('guru');
+        setCurrentMentorProfile(null);
       }
       fetchAllData();
     });
@@ -89,6 +111,22 @@ export default function App() {
     };
   }, []);
 
+  async function determineUserRoleAndProfile(authUser) {
+    if (authUser.email?.includes('admin')) {
+      setUserRole('admin');
+      setCurrentMentorProfile(null);
+    } else {
+      setUserRole('guru');
+      // Cari profil mentor berdasarkan user_id atau email
+      const { data: mData } = await supabase.from('mentor').select('*').eq('email', authUser.email).single();
+      if (mData) {
+        setCurrentMentorProfile(mData);
+        // Otomatis set mentor_id di form presensi guru
+        setNewPresensiSiswa(prev => ({ ...prev, mentor_id: mData.id }));
+      }
+    }
+  }
+
   async function fetchPaket() {
     const { data } = await supabase.from('paket_belajar').select('*').order('created_at', { ascending: true });
     if (data) setPaketList(data);
@@ -98,10 +136,11 @@ export default function App() {
     const { data: siswa } = await supabase.from('siswa').select('*').order('created_at', { ascending: false });
     const { data: mentor } = await supabase.from('mentor').select('*').order('created_at', { ascending: false });
     const { data: periode } = await supabase.from('periode_belajar').select('*, siswa(nama_murid, status), paket_belajar(nama_paket)').order('created_at', { ascending: false });
-    const { data: presensiS } = await supabase.from('presensi_siswa').select('*, mentor(nama_mentor), periode_belajar(siswa(nama_murid), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false });
+    const { data: presensiS } = await supabase.from('presensi_siswa').select('*, mentor(nama_mentor), periode_belajar(siswa(nama_murid, siswa_id), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false });
     const { data: izin } = await supabase.from('perizinan_siswa').select('*, siswa(nama_murid)').order('created_at', { ascending: false });
     const { data: pemb } = await supabase.from('pembayaran_siswa').select('*').order('created_at', { ascending: false });
     const { data: presensiM } = await supabase.from('presensi_mentor').select('*, mentor(nama_mentor)').order('tanggal', { ascending: false });
+    const { data: gaji } = await supabase.from('penggajian_mentor').select('*, mentor(nama_mentor, honor_per_jam)').order('created_at', { ascending: false });
     const { data: logistik } = await supabase.from('inventaris_logistik').select('*').order('nama_barang', { ascending: true });
 
     if (siswa) setDaftarSiswa(siswa);
@@ -111,6 +150,7 @@ export default function App() {
     if (izin) setDaftarPerizinan(izin);
     if (pemb) setDaftarPembayaran(pemb);
     if (presensiM) setDaftarPresensiMentor(presensiM);
+    if (gaji) setDaftarPenggajian(gaji);
     if (logistik) setDaftarInventaris(logistik);
   }
 
@@ -129,8 +169,7 @@ export default function App() {
       setLoginError('Login gagal: ' + error.message);
     } else {
       setShowLoginModal(false);
-      if (loginEmail.includes('admin')) setUserRole('admin');
-      else setUserRole('guru');
+      determineUserRoleAndProfile(data.user);
       setLoginEmail('');
       setLoginPassword('');
     }
@@ -140,20 +179,99 @@ export default function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setUserRole('guru');
+    setCurrentMentorProfile(null);
   };
 
-  // ADMIN ACTION: Approve Siswa (Pending -> Aktif / Non-Aktif)
+  // 1. MANAJEMEN MENTOR (CRUD + SUPABASE AUTH)
+  const handleTambahMentor = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Buat user di Auth Supabase (Catatan: dalam client-side, signup membuat sesi baru jika tidak di-handle, 
+      // sehingga lebih aman menggunakan fungsi API atau insert langsung ke tabel jika auth dikelola admin terpisah. 
+      // Di sini kita catat ke tabel mentor dan simpan email/password referensi).
+      const { error: errAuth } = await supabase.auth.signUp({
+        email: newMentor.email,
+        password: newMentor.password,
+      });
+
+      if (errAuth) {
+        console.warn('Auth notice:', errAuth.message);
+      }
+
+      const { error: errDb } = await supabase.from('mentor').insert([{
+        nama_mentor: newMentor.nama_mentor,
+        email: newMentor.email,
+        no_hp: newMentor.no_hp,
+        alamat: newMentor.alamat,
+        honor_per_jam: newMentor.honor_per_jam,
+        akses_inventaris: newMentor.akses_inventaris,
+        akses_perizinan: newMentor.akses_perizinan,
+        status: newMentor.status
+      }]);
+
+      if (errDb) throw errDb;
+
+      alert('✅ Mentor baru berhasil didaftarkan!');
+      setNewMentor({
+        nama_mentor: '', email: '', password: '', no_hp: '', alamat: '',
+        honor_per_jam: 25000, akses_inventaris: false, akses_perizinan: false, status: 'aktif'
+      });
+      fetchAllData();
+    } catch (err) {
+      alert('Gagal menambah mentor: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. CRUD GAJI & REKAP JAM MENGAJAR
+  const handleSimpanGaji = async (e) => {
+    e.preventDefault();
+    if (!gajiForm.mentor_id) { alert('Pilih mentor!'); return; }
+
+    // Hitung total jam mentor pada bulan tersebut dari tabel presensi_mentor
+    const mentorRec = daftarMentor.find(m => m.id === gajiForm.mentor_id);
+    const totalJam = daftarPresensiMentor
+      .filter(pm => pm.mentor_id === gajiForm.mentor_id && pm.tanggal.startsWith(gajiForm.bulan_periode))
+      .reduce((acc, curr) => acc + (Number(curr.total_jam) || 0), 0);
+
+    const honorJam = mentorRec?.honor_per_jam || 25000;
+
+    await supabase.from('penggajian_mentor').insert([{
+      mentor_id: gajiForm.mentor_id,
+      bulan_periode: gajiForm.bulan_periode,
+      total_jam_mengajar: totalJam,
+      honor_per_jam: honorJam,
+      insentif: gajiForm.insentif,
+      bonus_kinerja: gajiForm.bonus_kinerja,
+      status_pembayaran: 'draft'
+    }]);
+
+    alert('✅ Rekap gaji bulan ini berhasil dibuat!');
+    fetchAllData();
+  };
+
+  const handleBayarGaji = async (gajiId) => {
+    await supabase.from('penggajian_mentor').update({
+      status_pembayaran: 'dibayar',
+      tanggal_pembayaran: new Date().toISOString()
+    }).eq('id', gajiId);
+    fetchAllData();
+  };
+
+  // 3. ADMIN: APPROVAL SISWA & PEMBAYARAN
   const handleUpdateStatusSiswa = async (siswaId, status) => {
     await supabase.from('siswa').update({ status }).eq('id', siswaId);
     fetchAllData();
   };
 
-  // ADMIN ACTION: Update Status Pembayaran
   const handleUpdatePembayaran = async (periodeId, siswaId, status_pembayaran) => {
     const tglBayar = status_pembayaran === 'Lunas' ? new Date().toISOString() : null;
-    
-    // Check if record exists
     const existing = daftarPembayaran.find(p => p.periode_id === periodeId);
+    
     if (existing) {
       await supabase.from('pembayaran_siswa').update({ status_pembayaran, tanggal_pembayaran: tglBayar }).eq('id', existing.id);
     } else {
@@ -168,7 +286,13 @@ export default function App() {
     fetchAllData();
   };
 
-  // GURU ACTION: Tambah Presensi Murid
+  // 4. ADMIN: PERIZINAN (DISETUJUI / DITOLAK)
+  const handleUpdateStatusIzin = async (izinId, status_izin) => {
+    await supabase.from('perizinan_siswa').update({ status_izin }).eq('id', izinId);
+    fetchAllData();
+  };
+
+  // GURU: TAMBAH PRESENSI SISWA
   const handleTambahPresensiSiswa = async (e) => {
     e.preventDefault();
     if (!newPresensiSiswa.periode_id) { alert('Pilih nama murid dan paket!'); return; }
@@ -180,14 +304,13 @@ export default function App() {
     fetchAllData();
   };
 
-  // Submit Pendaftaran Public (Status awal: Pending)
+  // Submit Pendaftaran Public
   const handleDaftarSubmit = async (e) => {
     e.preventDefault();
     if (selectedPaket.length === 0) { alert('Pilih minimal satu paket!'); return; }
     setLoading(true);
 
     try {
-      // Status default pendaftaran: 'pending'
       const { data: siswaData } = await supabase.from('siswa').insert([{ ...formDaftar, status: 'pending' }]).select();
 
       if (siswaData && siswaData[0]) {
@@ -215,10 +338,7 @@ export default function App() {
     }
   };
 
-  // Filter siswa aktif untuk dropdown Guru
   const periodeSiswaAktif = daftarPeriode.filter(p => p.siswa?.status === 'aktif');
-
-  // Filter Presensi berdasarkan pilihan
   const filteredPresensiSiswa = selectedSiswaIdFilter === 'all' 
     ? daftarPresensiSiswa 
     : daftarPresensiSiswa.filter(ps => ps.periode_belajar?.siswa_id === selectedSiswaIdFilter);
@@ -244,7 +364,7 @@ export default function App() {
             {user ? (
               <div className="flex items-center space-x-3">
                 <span className="text-xs bg-amber-400 text-purple-950 font-black px-3 py-1 rounded-full shadow uppercase">
-                  Role: {userRole}
+                  {userRole === 'admin' ? '👑 Admin' : `👩‍🏫 Guru: ${currentMentorProfile?.nama_mentor || 'Mentor'}`}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -265,19 +385,19 @@ export default function App() {
         </div>
       </nav>
 
-      {/* JIKA LOGGED IN: TAMPILKAN PORTAL (GURU / ADMIN) */}
+      {/* DASHBOARD USER (GURU / ADMIN) */}
       {user ? (
         <div className="max-w-7xl mx-auto px-4 py-8">
           
           {/* ======================================================= */}
-          {/* 👩‍🏫 PORTAL KHUSUS GURU (PRESENSI & REKAP PERTEMUAN)      */}
+          {/* 👩‍🏫 PORTAL GURU (DENGAN DELEGASI HAK AKSES)             */}
           {/* ======================================================= */}
           {userRole === 'guru' && (
             <div className="space-y-8">
               <div className="bg-gradient-to-r from-purple-800 to-indigo-900 text-white p-6 rounded-2xl shadow-md">
-                <h2 className="text-2xl font-black">👩‍🏫 Portal Presensi & Jurnal Guru</h2>
+                <h2 className="text-2xl font-black">👩‍🏫 Portal Pengajar: {currentMentorProfile?.nama_mentor || 'Guru'}</h2>
                 <p className="text-purple-200 text-sm mt-1">
-                  Pilih murid berstatus <span className="font-bold text-amber-300">AKTIF</span> untuk menambah catatan pertemuan harian.
+                  Catat presensi harian murid dan jurnal pembelajaran. Tarif honor dasar Anda: <span className="font-bold text-amber-300">Rp {(currentMentorProfile?.honor_per_jam || 25000).toLocaleString('id-ID')} / jam</span>
                 </p>
               </div>
 
@@ -286,23 +406,23 @@ export default function App() {
                 <h3 className="text-lg font-extrabold text-[#581878] mb-4">➕ Catat Kehadiran Pertemuan Siswa</h3>
                 <form onSubmit={handleTambahPresensiSiswa} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   
-                  {/* Dropdown Guru / Mentor */}
+                  {/* Guru Pengajar (Otomatis / Terkunci ke akun login) */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Guru yang Mengajar</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Guru Pengajar</label>
                     <select
                       required
                       value={newPresensiSiswa.mentor_id}
                       onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, mentor_id: e.target.value })}
-                      className="w-full px-4 py-2.5 border rounded-xl outline-none bg-white font-medium text-sm"
+                      className="w-full px-4 py-2.5 border rounded-xl outline-none bg-gray-100 font-bold text-sm text-purple-900"
                     >
-                      <option value="">-- Pilih Nama Guru --</option>
+                      <option value="">-- Pilih Guru --</option>
                       {daftarMentor.map(m => (
                         <option key={m.id} value={m.id}>{m.nama_mentor}</option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Dropdown Murid Aktif */}
+                  {/* Murid Aktif */}
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Pilih Murid (Hanya Aktif)</label>
                     <select
@@ -323,7 +443,7 @@ export default function App() {
                     </select>
                   </div>
 
-                  {/* Pertemuan Ke- & Tanggal */}
+                  {/* Pertemuan & Tanggal */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">Pertemuan Ke-</label>
@@ -357,11 +477,11 @@ export default function App() {
                     </label>
                   </div>
 
-                  {/* Catatan Jurnal */}
+                  {/* Jurnal */}
                   <div className="md:col-span-2">
                     <label className="block text-xs font-bold text-gray-700 mb-1">Jurnal / Catatan Pembelajaran</label>
                     <input
-                      type="text" placeholder="Contoh: Menguasai AHE Hal 10-15, Latihan baca lancar"
+                      type="text" placeholder="Contoh: Menguasai AHE Hal 10-15"
                       value={newPresensiSiswa.jurnal_materi}
                       onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, jurnal_materi: e.target.value })}
                       className="w-full px-4 py-2 border rounded-xl text-sm"
@@ -374,124 +494,45 @@ export default function App() {
                 </form>
               </div>
 
-              {/* REKAP RIWAYAT JURNAL TEREDAKSI PER SISWA */}
-              <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
-                  <h3 className="text-lg font-bold text-[#581878]">📖 Riwayat Jurnal & Presensi Murid</h3>
-                  
-                  {/* Filter Per Siswa */}
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-gray-600">Filter Siswa:</span>
-                    <select
-                      value={selectedSiswaIdFilter}
-                      onChange={(e) => setSelectedSiswaIdFilter(e.target.value)}
-                      className="px-3 py-1.5 border rounded-xl text-xs font-bold bg-purple-50 text-[#581878] outline-none"
-                    >
-                      <option value="all">Semua Siswa</option>
-                      {daftarSiswa.filter(s => s.status === 'aktif').map(s => (
-                        <option key={s.id} value={s.id}>{s.nama_murid}</option>
-                      ))}
-                    </select>
+              {/* JIKA GURU DIBERI HAK AKSES TAMBAHAN: INVENTARIS / PERIZINAN */}
+              {currentMentorProfile?.akses_inventaris && (
+                <div className="bg-emerald-50 rounded-2xl p-6 border-2 border-emerald-300">
+                  <h3 className="text-lg font-extrabold text-emerald-900 mb-2">📚 Akses Delegasi: Kelola Stok Inventaris Modul</h3>
+                  <p className="text-xs text-emerald-700 mb-4">Anda ditugaskan admin untuk memantau stok buku dan ATK.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {daftarInventaris.map(b => (
+                      <div key={b.id} className="bg-white p-4 rounded-xl shadow border border-emerald-200 flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{b.nama_barang}</p>
+                          <p className="text-xs text-emerald-600 font-black mt-1">Stok: {b.stok} Unit</p>
+                        </div>
+                        <div className="space-x-1">
+                          <button onClick={async () => { await supabase.from('inventaris_logistik').update({stok: b.stok + 1}).eq('id', b.id); fetchAllData(); }} className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold">+1</button>
+                          <button onClick={async () => { await supabase.from('inventaris_logistik').update({stok: Math.max(0, b.stok - 1)}).eq('id', b.id); fetchAllData(); }} className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold">-1</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm border-collapse">
-                    <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
-                      <tr>
-                        <th className="p-3">Tanggal</th>
-                        <th className="p-3">Nama Siswa</th>
-                        <th className="p-3">Guru Mengajar</th>
-                        <th className="p-3">Pertemuan</th>
-                        <th className="p-3">Kehadiran</th>
-                        <th className="p-3">Jurnal Materi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPresensiSiswa.length > 0 ? (
-                        filteredPresensiSiswa.map((ps) => (
-                          <tr key={ps.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-semibold text-gray-600">{ps.tanggal_pertemuan}</td>
-                            <td className="p-3 font-bold text-gray-900">{ps.periode_belajar?.siswa?.nama_murid || 'Siswa'}</td>
-                            <td className="p-3 text-purple-900 font-bold">{ps.mentor?.nama_mentor || 'Guru'}</td>
-                            <td className="p-3 font-bold text-[#581878]">Ke-{ps.pertemuan_ke}</td>
-                            <td className="p-3">
-                              <span className={`text-xs font-bold px-2 py-1 rounded ${ps.is_hadir ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                {ps.is_hadir ? '✅ Hadir' : '❌ Absen'}
-                              </span>
-                              {ps.is_kelas_pengganti && <span className="ml-1 text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Pengganti</span>}
-                            </td>
-                            <td className="p-3 text-gray-600">{ps.jurnal_materi || '-'}</td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="6" className="p-6 text-center text-gray-400">Belum ada riwayat pertemuan.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================= */}
-          {/* 👑 PORTAL ADMIN (APPROVAL SISWA & MANAGEMENT LENGKAP)  */}
-          {/* ======================================================= */}
-          {userRole === 'admin' && (
-            <div>
-              {/* ADMIN NAVIGATION TABS */}
-              <div className="flex overflow-x-auto border-b-2 border-purple-200 mb-6 space-x-2 pb-1">
-                <button onClick={() => setAdminTab('siswa')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'siswa' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📋 Approval Siswa</button>
-                <button onClick={() => setAdminTab('pembayaran')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'pembayaran' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💵 Pembayaran Siswa</button>
-                <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍🏫 Presensi Guru</button>
-                <button onClick={() => setAdminTab('logistik')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'logistik' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📚 Inventaris Modul</button>
-                <button onClick={() => setAdminTab('izin')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'izin' ? 'bg-[#D95338] text-white' : 'bg-white text-gray-600'}`}>📩 Perizinan Siswa</button>
-              </div>
-
-              {/* TAB APPROVAL SISWA (PENDING -> AKTIF / NON-AKTIF) */}
-              {adminTab === 'siswa' && (
-                <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-                  <h3 className="text-xl font-bold text-[#581878] mb-4">Persetujuan (Approval) Pendaftaran Siswa Baru</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm border-collapse">
-                      <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
-                        <tr>
-                          <th className="p-3">Nama Murid</th>
-                          <th className="p-3">Orang Tua</th>
-                          <th className="p-3">Kontak WA</th>
-                          <th className="p-3">Status Saat Ini</th>
-                          <th className="p-3 text-center">Aksi Approval Admin</th>
-                        </tr>
+              {currentMentorProfile?.akses_perizinan && (
+                <div className="bg-amber-50 rounded-2xl p-6 border-2 border-amber-300">
+                  <h3 className="text-lg font-extrabold text-amber-900 mb-2">📩 Akses Delegasi: Verifikasi Perizinan Siswa</h3>
+                  <div className="overflow-x-auto bg-white rounded-xl p-4 shadow">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-amber-100 text-amber-900 text-xs">
+                        <tr><th className="p-2">Murid</th><th className="p-2">Tanggal</th><th className="p-2">Alasan</th><th className="p-2">Aksi</th></tr>
                       </thead>
                       <tbody>
-                        {daftarSiswa.map((s) => (
-                          <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-bold text-gray-900">{s.nama_murid}</td>
-                            <td className="p-3">{s.nama_orang_tua}</td>
-                            <td className="p-3"><a href={`https://wa.me/${s.no_hp?.replace(/^0/, '62')}`} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold hover:underline">💬 {s.no_hp}</a></td>
-                            <td className="p-3">
-                              <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${s.status === 'pending' ? 'bg-amber-100 text-amber-800' : s.status === 'aktif' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
-                                {s.status || 'pending'}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center space-x-2">
-                              {s.status === 'pending' && (
-                                <button onClick={() => handleUpdateStatusSiswa(s.id, 'aktif')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">
-                                  ✓ Approve (Aktifkan)
-                                </button>
-                              )}
-                              {s.status === 'aktif' && (
-                                <button onClick={() => handleUpdateStatusSiswa(s.id, 'non_aktif')} className="bg-red-500 hover:bg-red-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">
-                                  Set Non-Aktif
-                                </button>
-                              )}
-                              {s.status === 'non_aktif' && (
-                                <button onClick={() => handleUpdateStatusSiswa(s.id, 'aktif')} className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">
-                                  Re-Aktifkan
-                                </button>
-                              )}
+                        {daftarPerizinan.map(i => (
+                          <tr key={i.id} className="border-b">
+                            <td className="p-2 font-bold">{i.siswa?.nama_murid}</td>
+                            <td className="p-2">{i.tanggal_izin}</td>
+                            <td className="p-2">{i.alasan}</td>
+                            <td className="p-2 space-x-1">
+                              <button onClick={() => handleUpdateStatusIzin(i.id, 'disetujui')} className="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-bold">Setujui</button>
+                              <button onClick={() => handleUpdateStatusIzin(i.id, 'ditolak')} className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">Tolak</button>
                             </td>
                           </tr>
                         ))}
@@ -501,46 +542,105 @@ export default function App() {
                 </div>
               )}
 
-              {/* TAB PEMBAYARAN PERIODE SISWA (BELUM LUNAS -> LUNAS) */}
+              {/* RIWAYAT JURNAL */}
+              <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-[#581878]">📖 Rekap Jurnal Pertemuan Seluruh Guru</h3>
+                  <select value={selectedSiswaIdFilter} onChange={(e) => setSelectedSiswaIdFilter(e.target.value)} className="px-3 py-1.5 border rounded-xl text-xs font-bold bg-purple-50 text-[#581878]">
+                    <option value="all">Semua Siswa</option>
+                    {daftarSiswa.filter(s => s.status === 'aktif').map(s => <option key={s.id} value={s.id}>{s.nama_murid}</option>)}
+                  </select>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
+                      <tr><th className="p-3">Tanggal</th><th className="p-3">Nama Siswa</th><th className="p-3">Guru</th><th className="p-3">Pertemuan</th><th className="p-3">Kehadiran</th><th className="p-3">Jurnal</th></tr>
+                    </thead>
+                    <tbody>
+                      {filteredPresensiSiswa.map((ps) => (
+                        <tr key={ps.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-semibold text-gray-600">{ps.tanggal_pertemuan}</td>
+                          <td className="p-3 font-bold text-gray-900">{ps.periode_belajar?.siswa?.nama_murid || 'Siswa'}</td>
+                          <td className="p-3 text-purple-900 font-bold">{ps.mentor?.nama_mentor || 'Guru'}</td>
+                          <td className="p-3 font-bold text-[#581878]">Ke-{ps.pertemuan_ke}</td>
+                          <td className="p-3"><span className={`text-xs font-bold px-2 py-1 rounded ${ps.is_hadir ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{ps.is_hadir ? '✅ Hadir' : '❌ Absen'}</span></td>
+                          <td className="p-3 text-gray-600">{ps.jurnal_materi || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================= */}
+          {/* 👑 PORTAL ADMIN (MANAJEMEN MENTOR, GAJI & APPROVAL)      */}
+          {/* ======================================================= */}
+          {userRole === 'admin' && (
+            <div>
+              {/* ADMIN NAVIGATION TABS */}
+              <div className="flex overflow-x-auto border-b-2 border-purple-200 mb-6 space-x-2 pb-1">
+                <button onClick={() => setAdminTab('siswa')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'siswa' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📋 Approval Siswa</button>
+                <button onClick={() => setAdminTab('pembayaran')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'pembayaran' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💵 Pembayaran</button>
+                <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍🏫 Kelola Mentor & Akses</button>
+                <button onClick={() => setAdminTab('gaji')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'gaji' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💰 Payroll & Rekap Gaji</button>
+                <button onClick={() => setAdminTab('logistik')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'logistik' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📚 Inventaris Modul</button>
+              </div>
+
+              {/* TAB 1: APPROVAL SISWA */}
+              {adminTab === 'siswa' && (
+                <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
+                  <h3 className="text-xl font-bold text-[#581878] mb-4">Persetujuan Pendaftaran Siswa Baru</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
+                        <tr><th className="p-3">Nama Murid</th><th className="p-3">Orang Tua</th><th className="p-3">Kontak WA</th><th className="p-3">Status</th><th className="p-3 text-center">Aksi Admin</th></tr>
+                      </thead>
+                      <tbody>
+                        {daftarSiswa.map((s) => (
+                          <tr key={s.id} className="border-b hover:bg-gray-50">
+                            <td className="p-3 font-bold text-gray-900">{s.nama_murid}</td>
+                            <td className="p-3">{s.nama_orang_tua}</td>
+                            <td className="p-3"><a href={`https://wa.me/${s.no_hp?.replace(/^0/, '62')}`} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold">💬 {s.no_hp}</a></td>
+                            <td className="p-3"><span className={`text-xs font-bold px-2 py-1 rounded uppercase ${s.status === 'pending' ? 'bg-amber-100 text-amber-800' : s.status === 'aktif' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>{s.status}</span></td>
+                            <td className="p-3 text-center space-x-2">
+                              {s.status === 'pending' && <button onClick={() => handleUpdateStatusSiswa(s.id, 'aktif')} className="bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">✓ Approve Aktif</button>}
+                              {s.status === 'aktif' && <button onClick={() => handleUpdateStatusSiswa(s.id, 'non_aktif')} className="bg-red-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">Non-Aktifkan</button>}
+                              {s.status === 'non_aktif' && <button onClick={() => handleUpdateStatusSiswa(s.id, 'aktif')} className="bg-purple-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow">Re-Aktifkan</button>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: PEMBAYARAN */}
               {adminTab === 'pembayaran' && (
                 <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
                   <h3 className="text-xl font-bold text-[#581878] mb-4">Manajemen Pembayaran Periode Siswa</h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm border-collapse">
+                    <table className="w-full text-left text-sm">
                       <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
-                        <tr>
-                          <th className="p-3">Nama Murid</th>
-                          <th className="p-3">Paket & Periode</th>
-                          <th className="p-3">Status Pembayaran</th>
-                          <th className="p-3">Tanggal Bayar</th>
-                          <th className="p-3 text-center">Ubah Status</th>
-                        </tr>
+                        <tr><th className="p-3">Murid</th><th className="p-3">Paket</th><th className="p-3">Status Pembayaran</th><th className="p-3">Tanggal Bayar</th><th className="p-3 text-center">Aksi</th></tr>
                       </thead>
                       <tbody>
                         {daftarPeriode.map((p) => {
                           const recordPemb = daftarPembayaran.find(pb => pb.periode_id === p.id);
                           const isLunas = recordPemb?.status_pembayaran === 'Lunas';
                           return (
-                            <tr key={p.id} className="border-b hover:bg-gray-50">
-                              <td className="p-3 font-bold text-gray-900">{p.siswa?.nama_murid}</td>
-                              <td className="p-3 font-semibold text-purple-900">{p.paket_belajar?.nama_paket} ({p.bulan_periode})</td>
-                              <td className="p-3">
-                                <span className={`text-xs font-bold px-2 py-1 rounded ${isLunas ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                                  {isLunas ? '🟢 Lunas' : '🔴 Belum Lunas'}
-                                </span>
-                              </td>
-                              <td className="p-3 text-xs font-semibold text-gray-600">
-                                {recordPemb?.tanggal_pembayaran ? new Date(recordPemb.tanggal_pembayaran).toLocaleDateString('id-ID') : '-'}
-                              </td>
+                            <tr key={p.id} className="border-b">
+                              <td className="p-3 font-bold">{p.siswa?.nama_murid}</td>
+                              <td className="p-3">{p.paket_belajar?.nama_paket}</td>
+                              <td className="p-3"><span className={`text-xs font-bold px-2 py-1 rounded ${isLunas ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{isLunas ? '🟢 Lunas' : '🔴 Belum Lunas'}</span></td>
+                              <td className="p-3 text-xs">{recordPemb?.tanggal_pembayaran ? new Date(recordPemb.tanggal_pembayaran).toLocaleDateString('id-ID') : '-'}</td>
                               <td className="p-3 text-center">
                                 {isLunas ? (
-                                  <button onClick={() => handleUpdatePembayaran(p.id, p.siswa_id, 'Belum Lunas')} className="bg-amber-100 text-amber-800 font-bold text-xs px-3 py-1 rounded hover:bg-amber-200">
-                                    Set Belum Lunas
-                                  </button>
+                                  <button onClick={() => handleUpdatePembayaran(p.id, p.siswa_id, 'Belum Lunas')} className="bg-amber-100 text-amber-800 font-bold text-xs px-3 py-1 rounded">Set Belum Lunas</button>
                                 ) : (
-                                  <button onClick={() => handleUpdatePembayaran(p.id, p.siswa_id, 'Lunas')} className="bg-emerald-600 text-white font-bold text-xs px-3 py-1 rounded hover:bg-emerald-700 shadow">
-                                    ✓ Tandai Lunas
-                                  </button>
+                                  <button onClick={() => handleUpdatePembayaran(p.id, p.siswa_id, 'Lunas')} className="bg-emerald-600 text-white font-bold text-xs px-3 py-1 rounded shadow">✓ Tandai Lunas</button>
                                 )}
                               </td>
                             </tr>
@@ -548,6 +648,141 @@ export default function App() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: KELOLA MENTOR & PENUGASAN AKSES */}
+              {adminTab === 'mentor' && (
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-200">
+                    <h4 className="text-lg font-bold text-[#581878] mb-3">👩‍🏫 Tambah Mentor / Guru Baru (Lengkap Email & Password Login)</h4>
+                    <form onSubmit={handleTambahMentor} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <input type="text" placeholder="Nama Lengkap Mentor" required value={newMentor.nama_mentor} onChange={(e) => setNewMentor({...newMentor, nama_mentor: e.target.value})} className="px-4 py-2 border rounded-xl" />
+                      <input type="email" placeholder="Email Login Guru" required value={newMentor.email} onChange={(e) => setNewMentor({...newMentor, email: e.target.value})} className="px-4 py-2 border rounded-xl" />
+                      <input type="password" placeholder="Password Login" required value={newMentor.password} onChange={(e) => setNewMentor({...newMentor, password: e.target.value})} className="px-4 py-2 border rounded-xl" />
+                      <input type="text" placeholder="No. WhatsApp" required value={newMentor.no_hp} onChange={(e) => setNewMentor({...newMentor, no_hp: e.target.value})} className="px-4 py-2 border rounded-xl" />
+                      <input type="number" placeholder="Tarif Honor per Jam (Rp)" required value={newMentor.honor_per_jam} onChange={(e) => setNewMentor({...newMentor, honor_per_jam: Number(e.target.value)})} className="px-4 py-2 border rounded-xl" />
+                      
+                      <div className="md:col-span-3 flex flex-wrap gap-6 bg-purple-50 p-4 rounded-xl">
+                        <label className="flex items-center space-x-2 text-sm font-bold text-purple-900">
+                          <input type="checkbox" checked={newMentor.akses_inventaris} onChange={(e) => setNewMentor({...newMentor, akses_inventaris: e.target.checked})} className="w-4 h-4" />
+                          <span>Berikan Akses Penanggung Jawab Inventaris Modul</span>
+                        </label>
+                        <label className="flex items-center space-x-2 text-sm font-bold text-purple-900">
+                          <input type="checkbox" checked={newMentor.akses_perizinan} onChange={(e) => setNewMentor({...newMentor, akses_perizinan: e.target.checked})} className="w-4 h-4" />
+                          <span>Berikan Akses Penanggung Jawab Perizinan Siswa</span>
+                        </label>
+                      </div>
+
+                      <button type="submit" disabled={loading} className="md:col-span-3 bg-[#581878] text-white font-bold py-3 rounded-xl shadow">
+                        {loading ? 'Menyimpan...' : 'Simpan Mentor & Buat Akun 🚀'}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* List Daftar Mentor */}
+                  <div className="bg-white rounded-2xl p-6 shadow-md">
+                    <h4 className="text-lg font-bold text-[#581878] mb-4">Daftar Mentor Terdaftar</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
+                          <tr><th className="p-3">Nama</th><th className="p-3">Email Login</th><th className="p-3">Tarif / Jam</th><th className="p-3">Hak Akses Tambahan</th><th className="p-3">Status</th></tr>
+                        </thead>
+                        <tbody>
+                          {daftarMentor.map(m => (
+                            <tr key={m.id} className="border-b">
+                              <td className="p-3 font-bold">{m.nama_mentor}</td>
+                              <td className="p-3 text-purple-800">{m.email || '-'}</td>
+                              <td className="p-3">Rp {(m.honor_per_jam || 25000).toLocaleString('id-ID')}</td>
+                              <td className="p-3 text-xs space-x-1">
+                                {m.akses_inventaris && <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Inventaris</span>}
+                                {m.akses_perizinan && <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">Perizinan</span>}
+                                {!m.akses_inventaris && !m.akses_perizinan && <span className="text-gray-400">Guru Pengajar Utama</span>}
+                              </td>
+                              <td className="p-3"><span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded">{m.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: PAYROLL & REKAP GAJI */}
+              {adminTab === 'gaji' && (
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
+                    <h4 className="text-lg font-bold text-[#581878] mb-3">💰 Generate Rekap Gaji Bulanan</h4>
+                    <form onSubmit={handleSimpanGaji} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <select required value={gajiForm.mentor_id} onChange={(e) => setGajiForm({...gajiForm, mentor_id: e.target.value})} className="px-4 py-2 border rounded-xl bg-white">
+                        <option value="">-- Pilih Mentor --</option>
+                        {daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}
+                      </select>
+                      <input type="month" required value={gajiForm.bulan_periode} onChange={(e) => setGajiForm({...gajiForm, bulan_periode: e.target.value})} className="px-4 py-2 border rounded-xl" />
+                      <input type="number" placeholder="Insentif Kustom (Rp)" value={gajiForm.insentif} onChange={(e) => setGajiForm({...gajiForm, insentif: Number(e.target.value)})} className="px-4 py-2 border rounded-xl" />
+                      <button type="submit" className="bg-[#581878] text-white font-bold py-2 rounded-xl">Hitung & Simpan Rekap</button>
+                    </form>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-6 shadow-md">
+                    <h4 className="text-lg font-bold text-[#581878] mb-4">Riwayat Penggajian & Slip Gaji</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
+                          <tr><th className="p-3">Bulan</th><th className="p-3">Mentor</th><th className="p-3">Total Jam</th><th className="p-3">Honor Total</th><th className="p-3">Status</th><th className="p-3 text-center">Aksi</th></tr>
+                        </thead>
+                        <tbody>
+                          {daftarPenggajian.map(g => {
+                            const totalHonor = (g.total_jam_mengajar * g.honor_per_jam) + (g.insentif || 0) + (g.bonus_kinerja || 0);
+                            return (
+                              <tr key={g.id} className="border-b">
+                                <td className="p-3 font-semibold">{g.bulan_periode}</td>
+                                <td className="p-3 font-bold">{g.mentor?.nama_mentor}</td>
+                                <td className="p-3">{g.total_jam_mengajar} Jam</td>
+                                <td className="p-3 font-extrabold text-emerald-600">Rp {totalHonor.toLocaleString('id-ID')}</td>
+                                <td className="p-3"><span className={`text-xs font-bold px-2 py-1 rounded uppercase ${g.status_pembayaran === 'dibayar' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{g.status_pembayaran}</span></td>
+                                <td className="p-3 text-center space-x-2">
+                                  <button onClick={() => alert(`SLIP GAJI BIMBEL ERHA\nBulan: ${g.bulan_periode}\nMentor: ${g.mentor?.nama_mentor}\nTotal Jam: ${g.total_jam_mengajar} Jam\nTarif/Jam: Rp ${g.honor_per_jam?.toLocaleString('id-ID')}\nInsentif: Rp ${g.insentif?.toLocaleString('id-ID')}\nTOTAL DITERIMA: Rp ${totalHonor.toLocaleString('id-ID')}`)} className="bg-purple-100 text-[#581878] font-bold text-xs px-3 py-1 rounded">🖨️ Cetak</button>
+                                  {g.status_pembayaran !== 'dibayar' && <button onClick={() => handleBayarGaji(g.id)} className="bg-emerald-600 text-white font-bold text-xs px-3 py-1 rounded">Tandai Dibayar</button>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: INVENTARIS LOGISTIK */}
+              {adminTab === 'logistik' && (
+                <div className="space-y-6">
+                  <div className="bg-white rounded-2xl p-6 shadow-md border border-emerald-100">
+                    <h4 className="text-lg font-bold text-emerald-800 mb-3">➕ Tambah Barang Inventaris / Modul</h4>
+                    <form onSubmit={async (e) => { e.preventDefault(); await supabase.from('inventaris_logistik').insert([newBarang]); setNewBarang({nama_barang:'', kategori:'buku', stok:10, harga_satuan:15000}); fetchAllData(); }} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <input type="text" placeholder="Nama Barang" required value={newBarang.nama_barang} onChange={(e) => setNewBarang({...newBarang, nama_barang: e.target.value})} className="px-4 py-2 border rounded-xl" />
+                      <select value={newBarang.kategori} onChange={(e) => setNewBarang({...newBarang, kategori: e.target.value})} className="px-4 py-2 border rounded-xl bg-white"><option value="buku">Buku/Modul</option><option value="kartu">Kartu</option><option value="atk">ATK</option></select>
+                      <input type="number" placeholder="Stok" value={newBarang.stok} onChange={(e) => setNewBarang({...newBarang, stok: Number(e.target.value)})} className="px-4 py-2 border rounded-xl" />
+                      <button type="submit" className="bg-emerald-600 text-white font-bold py-2 rounded-xl">Simpan Barang</button>
+                    </form>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {daftarInventaris.map(b => (
+                      <div key={b.id} className="bg-white p-5 rounded-2xl shadow border flex justify-between items-center">
+                        <div>
+                          <h5 className="font-bold text-gray-900">{b.nama_barang}</h5>
+                          <p className="text-sm font-black text-emerald-600 mt-1">Stok: {b.stok} Unit</p>
+                        </div>
+                        <div className="space-x-1">
+                          <button onClick={async () => { await supabase.from('inventaris_logistik').update({stok: b.stok + 1}).eq('id', b.id); fetchAllData(); }} className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold">+1</button>
+                          <button onClick={async () => { await supabase.from('inventaris_logistik').update({stok: Math.max(0, b.stok - 1)}).eq('id', b.id); fetchAllData(); }} className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold">-1</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -572,12 +807,11 @@ export default function App() {
             </div>
           </section>
 
-          {/* PAKET BELAJAR SECTION */}
+          {/* PAKET BELAJAR */}
           <section className="max-w-6xl mx-auto px-4 -mt-12 mb-16">
             <div className="text-center mb-10">
               <h3 className="text-3xl font-extrabold text-[#581878]">Pilihan Paket Belajar</h3>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {paketList.map((paket) => {
                 const isSelected = selectedPaket.includes(paket.id);
@@ -602,7 +836,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* FORM PENDAFTARAN & IZIN PUBLIC */}
+          {/* FORM PENDAFTARAN */}
           <section className="max-w-3xl mx-auto px-4 mb-20">
             <div className="bg-white rounded-3xl shadow-xl border-2 border-purple-100 p-8">
               <h3 className="text-2xl font-black text-[#581878] mb-6 text-center">📝 Form Pendaftaran Siswa Baru</h3>
@@ -630,7 +864,7 @@ export default function App() {
         </>
       )}
 
-      {/* MODAL POPUP LOGIN */}
+      {/* MODAL LOGIN */}
       {showLoginModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative border-4 border-[#581878]">
