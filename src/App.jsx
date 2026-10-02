@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('pendaftaran');
-  const [adminTab, setAdminTab] = useState('siswa'); // 'siswa', 'izin', 'presensi', 'mentor', 'gaji', 'stok', 'paket'
+  const [adminTab, setAdminTab] = useState('siswa'); // 'siswa', 'presensi_s', 'mentor', 'gaji', 'logistik', 'izin', 'paket'
   const [paketList, setPaketList] = useState([]);
   const [selectedPaket, setSelectedPaket] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,19 +20,21 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // State Data Master Admin
+  // State Data Master 12 Tabel Supabase
   const [daftarSiswa, setDaftarSiswa] = useState([]);
-  const [daftarIzin, setDaftarIzin] = useState([]);
   const [daftarMentor, setDaftarMentor] = useState([]);
-  const [daftarPresensiMentor, setDaftarPresensiMentor] = useState([]);
+  const [daftarPeriode, setDaftarPeriode] = useState([]);
   const [daftarPresensiSiswa, setDaftarPresensiSiswa] = useState([]);
-  const [daftarStokBuku, setDaftarStokBuku] = useState([]);
+  const [daftarPerizinan, setDaftarPerizinan] = useState([]);
+  const [daftarPresensiMentor, setDaftarPresensiMentor] = useState([]);
+  const [daftarPenggajian, setDaftarPenggajian] = useState([]);
+  const [daftarInventaris, setDaftarInventaris] = useState([]);
 
   // Form State Admin Action
-  const [newMentor, setNewMentor] = useState({ nama: '', no_hp: '', honor_per_jam: 25000 });
-  const [newPresensiMentor, setNewPresensiMentor] = useState({ mentor_id: '', tanggal: new Date().toISOString().split('T')[0], durasi_jam: 1, materi_ajar: '' });
-  const [newPresensiSiswa, setNewPresensiSiswa] = useState({ siswa_id: '', tanggal: new Date().toISOString().split('T')[0], status: 'Hadir', catatan: '' });
-  const [newBuku, setNewBuku] = useState({ judul_buku: '', kategori: 'AHE', stok_tersedia: 10, stok_minimal: 3 });
+  const [newMentor, setNewMentor] = useState({ nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 25000 });
+  const [newPresensiMentor, setNewPresensiMentor] = useState({ mentor_id: '', tanggal: new Date().toISOString().split('T')[0], jam_masuk: '08:00', jam_selesai: '10:00', total_jam: 2, kegiatan_pembelajaran: '' });
+  const [newPresensiSiswa, setNewPresensiSiswa] = useState({ periode_id: '', pertemuan_ke: 1, tanggal_pertemuan: new Date().toISOString().split('T')[0], is_hadir: true, is_kelas_pengganti: false, jurnal_materi: '' });
+  const [newBarang, setNewBarang] = useState({ nama_barang: '', kategori: 'buku', stok: 10, harga_satuan: 15000 });
   const [newPaket, setNewPaket] = useState({ nama_paket: '', kategori: 'mapel', deskripsi: '' });
 
   // Form State Public
@@ -41,13 +43,12 @@ export default function App() {
     nama_orang_tua: '',
     no_hp: '',
     alamat: '',
-    jenjang_sekolah: 'PAUD/TK',
+    jenjang_sekolah: 'TK',
   });
 
   const [formIzin, setFormIzin] = useState({
-    nama_murid: '',
-    no_hp: '',
-    tanggal_izin: '',
+    siswa_id: '',
+    tanggal_izin: new Date().toISOString().split('T')[0],
     alasan: '',
   });
 
@@ -71,35 +72,28 @@ export default function App() {
   }, []);
 
   async function fetchPaket() {
-    const { data, error } = await supabase.from('paket_belajar').select('*').order('created_at', { ascending: true });
-    if (!error && data && data.length > 0) {
-      setPaketList(data);
-    } else {
-      setPaketList([
-        { id: '1', nama_paket: 'Baca AHE', kategori: 'baca', deskripsi: 'Program membaca cepat & ramah anak' },
-        { id: '2', nama_paket: 'Berhitung ASE', kategori: 'berhitung', deskripsi: 'Aritmatika ceria dan cepat' },
-        { id: '3', nama_paket: 'Matematika SD/SMP', kategori: 'mapel', deskripsi: 'Konsep dasar & latihan soal' },
-        { id: '4', nama_paket: 'Bahasa Inggris', kategori: 'mapel', deskripsi: 'Vocab & percakapan dasar' },
-        { id: '5', nama_paket: 'IPAS & Agama', kategori: 'mapel', deskripsi: 'Pendampingan belajar sekolah' },
-        { id: '6', nama_paket: 'Bahasa Jawa & B. Indo', kategori: 'mapel', deskripsi: 'Membaca, menulis, & muatan lokal' },
-      ]);
-    }
+    const { data, error } = await supabase.from('paket_belajar').select('*').eq('is_active', true).order('created_at', { ascending: true });
+    if (!error && data) setPaketList(data);
   }
 
   async function fetchAllAdminData() {
     const { data: siswa } = await supabase.from('siswa').select('*').order('created_at', { ascending: false });
-    const { data: izin } = await supabase.from('izin_siswa').select('*').order('created_at', { ascending: false });
     const { data: mentor } = await supabase.from('mentor').select('*').order('created_at', { ascending: false });
-    const { data: presensiM } = await supabase.from('presensi_mentor').select('*, mentor(nama, honor_per_jam)').order('tanggal', { ascending: false });
-    const { data: presensiS } = await supabase.from('presensi_siswa').select('*, siswa(nama_murid)').order('tanggal', { ascending: false });
-    const { data: buku } = await supabase.from('stok_buku').select('*').order('judul_buku', { ascending: true });
+    const { data: periode } = await supabase.from('periode_belajar').select('*, siswa(nama_murid), paket_belajar(nama_paket)').order('created_at', { ascending: false });
+    const { data: presensiS } = await supabase.from('presensi_siswa').select('*, periode_belajar(siswa(nama_murid))').order('tanggal_pertemuan', { ascending: false });
+    const { data: izin } = await supabase.from('perizinan_siswa').select('*, siswa(nama_murid)').order('created_at', { ascending: false });
+    const { data: presensiM } = await supabase.from('presensi_mentor').select('*, mentor(nama_mentor, honor_per_jam)').order('tanggal', { ascending: false });
+    const { data: gaji } = await supabase.from('penggajian_mentor').select('*, mentor(nama_mentor)').order('created_at', { ascending: false });
+    const { data: logistik } = await supabase.from('inventaris_logistik').select('*').order('nama_barang', { ascending: true });
 
     if (siswa) setDaftarSiswa(siswa);
-    if (izin) setDaftarIzin(izin);
     if (mentor) setDaftarMentor(mentor);
-    if (presensiM) setDaftarPresensiMentor(presensiM);
+    if (periode) setDaftarPeriode(periode);
     if (presensiS) setDaftarPresensiSiswa(presensiS);
-    if (buku) setDaftarStokBuku(buku);
+    if (izin) setDaftarPerizinan(izin);
+    if (presensiM) setDaftarPresensiMentor(presensiM);
+    if (gaji) setDaftarPenggajian(gaji);
+    if (logistik) setDaftarInventaris(logistik);
   }
 
   // Auth Handlers
@@ -132,38 +126,38 @@ export default function App() {
   const handleTambahMentor = async (e) => {
     e.preventDefault();
     await supabase.from('mentor').insert([newMentor]);
-    setNewMentor({ nama: '', no_hp: '', honor_per_jam: 25000 });
+    setNewMentor({ nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 25000 });
     fetchAllAdminData();
   };
 
   const handleTambahPresensiMentor = async (e) => {
     e.preventDefault();
-    if (!newPresensiMentor.mentor_id) { alert('Pilih mentor terlebih dahulu!'); return; }
+    if (!newPresensiMentor.mentor_id) { alert('Pilih mentor!'); return; }
     await supabase.from('presensi_mentor').insert([newPresensiMentor]);
-    setNewPresensiMentor({ ...newPresensiMentor, materi_ajar: '' });
+    setNewPresensiMentor({ ...newPresensiMentor, kegiatan_pembelajaran: '' });
     fetchAllAdminData();
   };
 
   const handleTambahPresensiSiswa = async (e) => {
     e.preventDefault();
-    if (!newPresensiSiswa.siswa_id) { alert('Pilih siswa terlebih dahulu!'); return; }
+    if (!newPresensiSiswa.periode_id) { alert('Pilih periode belajar siswa!'); return; }
     await supabase.from('presensi_siswa').insert([newPresensiSiswa]);
-    setNewPresensiSiswa({ ...newPresensiSiswa, catatan: '' });
+    setNewPresensiSiswa({ ...newPresensiSiswa, jurnal_materi: '' });
     fetchAllAdminData();
   };
 
-  const handleTambahBuku = async (e) => {
+  const handleTambahBarang = async (e) => {
     e.preventDefault();
-    await supabase.from('stok_buku').insert([newBuku]);
-    setNewBuku({ judul_buku: '', kategori: 'AHE', stok_tersedia: 10, stok_minimal: 3 });
+    await supabase.from('inventaris_logistik').insert([newBarang]);
+    setNewBarang({ nama_barang: '', kategori: 'buku', stok: 10, harga_satuan: 15000 });
     fetchAllAdminData();
   };
 
-  const handleUpdateStokBuku = async (id, delta) => {
-    const buku = daftarStokBuku.find(b => b.id === id);
-    if (buku) {
-      const updatedStok = Math.max(0, (buku.stok_tersedia || 0) + delta);
-      await supabase.from('stok_buku').update({ stok_tersedia: updatedStok }).eq('id', id);
+  const handleUpdateStokBarang = async (id, delta) => {
+    const barang = daftarInventaris.find(b => b.id === id);
+    if (barang) {
+      const updatedStok = Math.max(0, (barang.stok || 0) + delta);
+      await supabase.from('inventaris_logistik').update({ stok: updatedStok }).eq('id', id);
       fetchAllAdminData();
     }
   };
@@ -183,7 +177,7 @@ export default function App() {
     }
   };
 
-  // Submit Public
+  // Submit Public (Pendaftaran + Periode 12 Pertemuan)
   const handleDaftarSubmit = async (e) => {
     e.preventDefault();
     if (selectedPaket.length === 0) {
@@ -193,13 +187,23 @@ export default function App() {
     setLoading(true);
 
     try {
-      const { data: siswaData } = await supabase.from('siswa').insert([{ ...formDaftar, status: 'Menunggu' }]).select();
+      // 1. Simpan Siswa
+      const { data: siswaData } = await supabase.from('siswa').insert([formDaftar]).select();
+      
       if (siswaData && siswaData[0]) {
-        const relasiPaket = selectedPaket.map((pId) => ({
-          siswa_id: siswaData[0].id,
+        const siswaId = siswaData[0].id;
+        const currentBulan = new Date().toISOString().slice(0, 7); // Format YYYY-MM
+
+        // 2. Buat Periode Belajar (12 Pertemuan) untuk setiap paket yang dipilih
+        const periodeInserts = selectedPaket.map(pId => ({
+          siswa_id: siswaId,
           paket_id: pId,
+          bulan_periode: currentBulan,
+          total_pertemuan: 12,
+          status_periode: 'berjalan'
         }));
-        await supabase.from('siswa_paket').insert(relasiPaket);
+
+        await supabase.from('periode_belajar').insert(periodeInserts);
       }
     } catch (err) {
       console.error(err);
@@ -207,16 +211,29 @@ export default function App() {
       setLoading(false);
       alert('Pendaftaran Berhasil! Mengarahkan ke WhatsApp Admin...');
       const waText = `Halo Admin Bimbel ErHa,\nSaya ${formDaftar.nama_orang_tua} mendaftarkan ${formDaftar.nama_murid} (${formDaftar.jenjang_sekolah}).`;
-      // Nomor WA Admin terbaru: 081915058297
       window.open(`https://wa.me/6281915058297?text=${encodeURIComponent(waText)}`, '_blank');
     }
   };
 
+  // Submit Izin Public
   const handleIzinSubmit = async (e) => {
     e.preventDefault();
+    if (!formIzin.siswa_id) {
+      alert('Silakan pilih nama murid!');
+      return;
+    }
     setLoading(true);
     try {
-      await supabase.from('izin_siswa').insert([formIzin]);
+      // Cari periode aktif siswa
+      const { data: pData } = await supabase.from('periode_belajar').select('id').eq('siswa_id', formIzin.siswa_id).eq('status_periode', 'berjalan').limit(1);
+      
+      await supabase.from('perizinan_siswa').insert([{
+        siswa_id: formIzin.siswa_id,
+        periode_id: pData && pData[0] ? pData[0].id : null,
+        tanggal_izin: formIzin.tanggal_izin,
+        alasan: formIzin.alasan,
+        status_izin: 'pending'
+      }]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -252,7 +269,7 @@ export default function App() {
             {user ? (
               <div className="flex items-center space-x-3">
                 <span className="text-xs bg-amber-400 text-purple-950 font-black px-3 py-1 rounded-full shadow">
-                  Admin Logged In
+                  Admin Active
                 </span>
                 <button
                   onClick={handleLogout}
@@ -273,46 +290,46 @@ export default function App() {
         </div>
       </nav>
 
-      {/* ADMIN DASHBOARD LENGKAP */}
+      {/* DASHBOARD ADMIN */}
       {user ? (
         <div className="max-w-7xl mx-auto px-4 py-8">
           {/* STATISTIK CARDS */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-white p-5 rounded-2xl shadow border-l-8 border-[#581878]">
-              <p className="text-xs font-bold text-gray-500 uppercase">Siswa Terdaftar</p>
-              <h3 className="text-2xl font-black text-[#581878] mt-1">{daftarSiswa.length} <span className="text-xs font-medium text-gray-500">Anak</span></h3>
+              <p className="text-xs font-bold text-gray-500 uppercase">Siswa Aktif</p>
+              <h3 className="text-2xl font-black text-[#581878] mt-1">{daftarSiswa.filter(s => s.status === 'aktif').length} <span className="text-xs font-medium text-gray-500">Anak</span></h3>
             </div>
             <div className="bg-white p-5 rounded-2xl shadow border-l-8 border-[#D95338]">
-              <p className="text-xs font-bold text-gray-500 uppercase">Pengajuan Izin</p>
-              <h3 className="text-2xl font-black text-[#D95338] mt-1">{daftarIzin.length} <span className="text-xs font-medium text-gray-500">Izin</span></h3>
+              <p className="text-xs font-bold text-gray-500 uppercase">Perizinan Pending</p>
+              <h3 className="text-2xl font-black text-[#D95338] mt-1">{daftarPerizinan.filter(i => i.status_izin === 'pending').length} <span className="text-xs font-medium text-gray-500">Izin</span></h3>
             </div>
             <div className="bg-white p-5 rounded-2xl shadow border-l-8 border-[#F59E0B]">
-              <p className="text-xs font-bold text-gray-500 uppercase">Total Mentor</p>
-              <h3 className="text-2xl font-black text-[#F59E0B] mt-1">{daftarMentor.length} <span className="text-xs font-medium text-gray-500">Pengajar</span></h3>
+              <p className="text-xs font-bold text-gray-500 uppercase">Mentor Aktif</p>
+              <h3 className="text-2xl font-black text-[#F59E0B] mt-1">{daftarMentor.filter(m => m.status === 'aktif').length} <span className="text-xs font-medium text-gray-500">Pengajar</span></h3>
             </div>
             <div className="bg-white p-5 rounded-2xl shadow border-l-8 border-emerald-500">
-              <p className="text-xs font-bold text-gray-500 uppercase">Stok Buku Modul</p>
+              <p className="text-xs font-bold text-gray-500 uppercase">Total Logistik Modul</p>
               <h3 className="text-2xl font-black text-emerald-600 mt-1">
-                {daftarStokBuku.reduce((acc, b) => acc + (b.stok_tersedia || 0), 0)} <span className="text-xs font-medium text-gray-500">Buku</span>
+                {daftarInventaris.reduce((acc, b) => acc + (b.stok || 0), 0)} <span className="text-xs font-medium text-gray-500">Unit</span>
               </h3>
             </div>
           </div>
 
-          {/* ADMIN NAVIGATION TABS */}
+          {/* ADMIN TABS NAVIGATION */}
           <div className="flex overflow-x-auto border-b-2 border-purple-200 mb-6 space-x-2 pb-1">
-            <button onClick={() => setAdminTab('siswa')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'siswa' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600 hover:bg-purple-50'}`}>📋 Siswa</button>
-            <button onClick={() => setAdminTab('presensi')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'presensi' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600 hover:bg-purple-50'}`}>📝 Presensi Siswa</button>
-            <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600 hover:bg-purple-50'}`}>👩‍🏫 Presensi Mentor</button>
-            <button onClick={() => setAdminTab('gaji')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'gaji' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600 hover:bg-purple-50'}`}>💵 Payroll Gaji</button>
-            <button onClick={() => setAdminTab('stok')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'stok' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600 hover:bg-purple-50'}`}>📚 Stok Buku</button>
-            <button onClick={() => setAdminTab('izin')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'izin' ? 'bg-[#D95338] text-white' : 'bg-white text-gray-600 hover:bg-red-50'}`}>📩 Rekap Izin</button>
-            <button onClick={() => setAdminTab('paket')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'paket' ? 'bg-[#F59E0B] text-white' : 'bg-white text-gray-600 hover:bg-amber-50'}`}>📚 Paket Belajar</button>
+            <button onClick={() => setAdminTab('siswa')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'siswa' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📋 Siswa & Periode</button>
+            <button onClick={() => setAdminTab('presensi_s')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'presensi_s' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📝 Presensi 12 Pertemuan</button>
+            <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍🏫 Presensi Mentor</button>
+            <button onClick={() => setAdminTab('gaji')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'gaji' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💵 Payroll Gaji</button>
+            <button onClick={() => setAdminTab('logistik')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'logistik' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📚 Inventaris Logistik</button>
+            <button onClick={() => setAdminTab('izin')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'izin' ? 'bg-[#D95338] text-white' : 'bg-white text-gray-600'}`}>📩 Perizinan Siswa</button>
+            <button onClick={() => setAdminTab('paket')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'paket' ? 'bg-[#F59E0B] text-white' : 'bg-white text-gray-600'}`}>📚 Master Paket</button>
           </div>
 
-          {/* TAB 1: KELOLA SISWA */}
+          {/* TAB 1: SISWA & PERIODE BELAJAR */}
           {adminTab === 'siswa' && (
             <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-              <h3 className="text-xl font-bold text-[#581878] mb-4">Pendaftaran Siswa Baru</h3>
+              <h3 className="text-xl font-bold text-[#581878] mb-4">Daftar Siswa & Periode Belajar (Kuota 12 Pertemuan)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
@@ -321,73 +338,97 @@ export default function App() {
                       <th className="p-3">Orang Tua</th>
                       <th className="p-3">Jenjang</th>
                       <th className="p-3">Kontak WA</th>
+                      <th className="p-3">Paket & Periode</th>
                       <th className="p-3">Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {daftarSiswa.map((s) => (
-                      <tr key={s.id || s.created_at} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-bold">{s.nama_murid}</td>
-                        <td className="p-3">{s.nama_orang_tua}</td>
-                        <td className="p-3"><span className="bg-purple-100 text-[#581878] text-xs font-bold px-2 py-1 rounded">{s.jenjang_sekolah}</span></td>
-                        <td className="p-3"><a href={`https://wa.me/${s.no_hp?.replace(/^0/, '62')}`} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold hover:underline">💬 {s.no_hp}</a></td>
-                        <td className="p-3"><span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded">{s.status || 'Aktif'}</span></td>
-                      </tr>
-                    ))}
+                    {daftarSiswa.map((s) => {
+                      const periodeSiswa = daftarPeriode.filter(p => p.siswa_id === s.id);
+                      return (
+                        <tr key={s.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-bold">{s.nama_murid}</td>
+                          <td className="p-3">{s.nama_orang_tua}</td>
+                          <td className="p-3"><span className="bg-purple-100 text-[#581878] text-xs font-bold px-2 py-1 rounded">{s.jenjang_sekolah}</span></td>
+                          <td className="p-3"><a href={`https://wa.me/${s.no_hp?.replace(/^0/, '62')}`} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold hover:underline">💬 {s.no_hp}</a></td>
+                          <td className="p-3">
+                            {periodeSiswa.map(p => (
+                              <div key={p.id} className="text-xs bg-amber-50 text-amber-900 border border-amber-200 p-1 rounded mb-1">
+                                <strong>{p.paket_belajar?.nama_paket}</strong> ({p.bulan_periode}) - Kuota: {p.total_pertemuan} x
+                              </div>
+                            ))}
+                          </td>
+                          <td className="p-3"><span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded">{s.status}</span></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* TAB 2: PRESENSI SISWA (PERTEMUAN) */}
-          {adminTab === 'presensi' && (
+          {/* TAB 2: PRESENSI 12 PERTEMUAN SISWA */}
+          {adminTab === 'presensi_s' && (
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-                <h4 className="text-lg font-bold text-[#581878] mb-3">➕ Catat Presensi Harian Siswa</h4>
-                <form onSubmit={handleTambahPresensiSiswa} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <h4 className="text-lg font-bold text-[#581878] mb-3">➕ Centang Kehadiran Pertemuan Siswa</h4>
+                <form onSubmit={handleTambahPresensiSiswa} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <select
-                    value={newPresensiSiswa.siswa_id}
-                    onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, siswa_id: e.target.value })}
+                    value={newPresensiSiswa.periode_id}
+                    onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, periode_id: e.target.value })}
                     className="px-4 py-2 border rounded-xl outline-none bg-white"
                   >
-                    <option value="">-- Pilih Siswa --</option>
-                    {daftarSiswa.map(s => <option key={s.id} value={s.id}>{s.nama_murid}</option>)}
+                    <option value="">-- Pilih Periode Siswa --</option>
+                    {daftarPeriode.map(p => (
+                      <option key={p.id} value={p.id}>{p.siswa?.nama_murid} - {p.paket_belajar?.nama_paket}</option>
+                    ))}
                   </select>
-                  <input type="date" value={newPresensiSiswa.tanggal} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, tanggal: e.target.value })} className="px-4 py-2 border rounded-xl" />
-                  <select value={newPresensiSiswa.status} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, status: e.target.value })} className="px-4 py-2 border rounded-xl bg-white">
-                    <option value="Hadir">✅ Hadir</option>
-                    <option value="Izin">📩 Izin</option>
-                    <option value="Alpha">❌ Alpha</option>
-                    <option value="Make-up Class">🔄 Make-up Class (Kelas Pengganti)</option>
-                  </select>
-                  <button type="submit" className="bg-[#581878] text-white font-bold py-2 rounded-xl">Simpan Presensi</button>
+                  <input type="number" min="1" max="12" placeholder="Pertemuan Ke (1-12)" value={newPresensiSiswa.pertemuan_ke} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, pertemuan_ke: Number(e.target.value) })} className="px-4 py-2 border rounded-xl" />
+                  <input type="date" value={newPresensiSiswa.tanggal_pertemuan} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, tanggal_pertemuan: e.target.value })} className="px-4 py-2 border rounded-xl" />
+                  
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center space-x-1 text-sm font-bold">
+                      <input type="checkbox" checked={newPresensiSiswa.is_hadir} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, is_hadir: e.target.checked })} />
+                      <span>Hadir</span>
+                    </label>
+                    <label className="flex items-center space-x-1 text-sm font-bold text-amber-700">
+                      <input type="checkbox" checked={newPresensiSiswa.is_kelas_pengganti} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, is_kelas_pengganti: e.target.checked })} />
+                      <span>Kelas Pengganti</span>
+                    </label>
+                  </div>
+
+                  <input type="text" placeholder="Jurnal Materi / Catatan" value={newPresensiSiswa.jurnal_materi} onChange={(e) => setNewPresensiSiswa({ ...newPresensiSiswa, jurnal_materi: e.target.value })} className="px-4 py-2 border rounded-xl md:col-span-2" />
+                  <button type="submit" className="bg-[#581878] text-white font-bold py-2 rounded-xl">Simpan Kehadiran</button>
                 </form>
               </div>
 
               <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-                <h3 className="text-xl font-bold text-[#581878] mb-4">Riwayat Kehadiran Siswa</h3>
+                <h3 className="text-xl font-bold text-[#581878] mb-4">Rekap Jurnal & Kehadiran Pertemuan</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
                       <tr>
                         <th className="p-3">Tanggal</th>
                         <th className="p-3">Nama Siswa</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3">Catatan</th>
+                        <th className="p-3">Pertemuan Ke-</th>
+                        <th className="p-3">Kehadiran</th>
+                        <th className="p-3">Jurnal Materi</th>
                       </tr>
                     </thead>
                     <tbody>
                       {daftarPresensiSiswa.map((ps) => (
                         <tr key={ps.id} className="border-b">
-                          <td className="p-3 font-semibold">{ps.tanggal}</td>
-                          <td className="p-3 font-bold">{ps.siswa?.nama_murid || 'Siswa'}</td>
+                          <td className="p-3 font-semibold">{ps.tanggal_pertemuan}</td>
+                          <td className="p-3 font-bold">{ps.periode_belajar?.siswa?.nama_murid || 'Siswa'}</td>
+                          <td className="p-3 font-bold text-[#581878]">Ke-{ps.pertemuan_ke}</td>
                           <td className="p-3">
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${ps.status === 'Hadir' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
-                              {ps.status}
+                            <span className={`text-xs font-bold px-2 py-1 rounded ${ps.is_hadir ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                              {ps.is_hadir ? '✅ Hadir' : '❌ Absen'}
                             </span>
+                            {ps.is_kelas_pengganti && <span className="ml-1 text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Pengganti</span>}
                           </td>
-                          <td className="p-3 text-gray-500">{ps.catatan || '-'}</td>
+                          <td className="p-3 text-gray-600">{ps.jurnal_materi || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -397,45 +438,45 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 3: DATA MENTOR & PRESENSI MENGAJAR */}
+          {/* TAB 3: MENTOR & PRESENSI HARIAN MENTOR */}
           {adminTab === 'mentor' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Form Tambah Mentor */}
                 <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
                   <h4 className="text-lg font-bold text-[#581878] mb-3">👩‍🏫 Tambah Mentor Baru</h4>
                   <form onSubmit={handleTambahMentor} className="space-y-3">
-                    <input type="text" placeholder="Nama Mentor" required value={newMentor.nama} onChange={(e) => setNewMentor({ ...newMentor, nama: e.target.value })} className="w-full px-4 py-2 border rounded-xl" />
+                    <input type="text" placeholder="Nama Mentor" required value={newMentor.nama_mentor} onChange={(e) => setNewMentor({ ...newMentor, nama_mentor: e.target.value })} className="w-full px-4 py-2 border rounded-xl" />
                     <input type="text" placeholder="No. WhatsApp" required value={newMentor.no_hp} onChange={(e) => setNewMentor({ ...newMentor, no_hp: e.target.value })} className="w-full px-4 py-2 border rounded-xl" />
                     <input type="number" placeholder="Honor per Jam (Rp)" required value={newMentor.honor_per_jam} onChange={(e) => setNewMentor({ ...newMentor, honor_per_jam: Number(e.target.value) })} className="w-full px-4 py-2 border rounded-xl" />
                     <button type="submit" className="w-full bg-[#581878] text-white font-bold py-2 rounded-xl">Simpan Mentor</button>
                   </form>
                 </div>
 
-                {/* Form Input Jam Mengajar */}
                 <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-                  <h4 className="text-lg font-bold text-[#581878] mb-3">⏱️ Catat Jam Mengajar Mentor</h4>
+                  <h4 className="text-lg font-bold text-[#581878] mb-3">⏱️ Input Jam Mengajar Mentor</h4>
                   <form onSubmit={handleTambahPresensiMentor} className="space-y-3">
                     <select value={newPresensiMentor.mentor_id} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, mentor_id: e.target.value })} className="w-full px-4 py-2 border rounded-xl bg-white">
                       <option value="">-- Pilih Mentor --</option>
-                      {daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama}</option>)}
+                      {daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}
                     </select>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="date" value={newPresensiMentor.tanggal} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, tanggal: e.target.value })} className="px-4 py-2 border rounded-xl" />
-                      <input type="number" step="0.5" placeholder="Durasi (Jam)" value={newPresensiMentor.durasi_jam} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, durasi_jam: Number(e.target.value) })} className="px-4 py-2 border rounded-xl" />
+                    <div className="grid grid-cols-3 gap-2">
+                      <input type="date" value={newPresensiMentor.tanggal} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, tanggal: e.target.value })} className="px-2 py-2 border rounded-xl text-xs" />
+                      <input type="time" value={newPresensiMentor.jam_masuk} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, jam_masuk: e.target.value })} className="px-2 py-2 border rounded-xl text-xs" />
+                      <input type="time" value={newPresensiMentor.jam_selesai} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, jam_selesai: e.target.value })} className="px-2 py-2 border rounded-xl text-xs" />
                     </div>
-                    <input type="text" placeholder="Materi / Kelas (Misal: Baca AHE Kelas A)" value={newPresensiMentor.materi_ajar} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, materi_ajar: e.target.value })} className="w-full px-4 py-2 border rounded-xl" />
-                    <button type="submit" className="w-full bg-[#F59E0B] text-white font-bold py-2 rounded-xl">Simpan Kehadiran Mentor</button>
+                    <input type="number" step="0.5" placeholder="Total Jam Mengajar" value={newPresensiMentor.total_jam} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, total_jam: Number(e.target.value) })} className="w-full px-4 py-2 border rounded-xl" />
+                    <input type="text" placeholder="Kegiatan Pembelajaran" value={newPresensiMentor.kegiatan_pembelajaran} onChange={(e) => setNewPresensiMentor({ ...newPresensiMentor, kegiatan_pembelajaran: e.target.value })} className="w-full px-4 py-2 border rounded-xl" />
+                    <button type="submit" className="w-full bg-[#F59E0B] text-white font-bold py-2 rounded-xl">Simpan Presensi Mentor</button>
                   </form>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 4: PAYROLL GAJI MENTOR */}
+          {/* TAB 4: PAYROLL PENGGAJIAN MENTOR */}
           {adminTab === 'gaji' && (
             <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-              <h3 className="text-xl font-bold text-[#581878] mb-4">💵 Rekap Penggajian Mentor</h3>
+              <h3 className="text-xl font-bold text-[#581878] mb-4">💵 Rekapitulasi Penggajian Mentor</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-purple-50 text-[#581878] uppercase text-xs">
@@ -443,23 +484,23 @@ export default function App() {
                       <th className="p-3">Nama Mentor</th>
                       <th className="p-3">Tarif / Jam</th>
                       <th className="p-3">Total Jam Mengajar</th>
-                      <th className="p-3">Estimasi Total Honor</th>
+                      <th className="p-3">Estimasi Gaji Pokok</th>
                       <th className="p-3 text-center">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {daftarMentor.map((m) => {
-                      const totalJam = daftarPresensiMentor.filter(pm => pm.mentor_id === m.id).reduce((acc, curr) => acc + (Number(curr.durasi_jam) || 0), 0);
+                      const totalJam = daftarPresensiMentor.filter(pm => pm.mentor_id === m.id).reduce((acc, curr) => acc + (Number(curr.total_jam) || 0), 0);
                       const totalGaji = totalJam * (m.honor_per_jam || 25000);
                       return (
                         <tr key={m.id} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-bold text-gray-900">{m.nama}</td>
+                          <td className="p-3 font-bold text-gray-900">{m.nama_mentor}</td>
                           <td className="p-3">Rp {(m.honor_per_jam || 25000).toLocaleString('id-ID')}</td>
                           <td className="p-3 font-bold text-[#581878]">{totalJam} Jam</td>
                           <td className="p-3 font-extrabold text-emerald-600">Rp {totalGaji.toLocaleString('id-ID')}</td>
                           <td className="p-3 text-center">
-                            <button onClick={() => alert(`Cetak Slip Gaji ${m.nama}:\nTotal Jam: ${totalJam} Jam\nTotal Honor: Rp ${totalGaji.toLocaleString('id-ID')}`)} className="bg-purple-100 text-[#581878] font-bold text-xs px-3 py-1 rounded">
-                              🖨️️ Cetak Slip
+                            <button onClick={() => alert(`Slip Gaji ${m.nama_mentor}:\nTotal Jam: ${totalJam} Jam\nTotal Diterima: Rp ${totalGaji.toLocaleString('id-ID')}`)} className="bg-purple-100 text-[#581878] font-bold text-xs px-3 py-1 rounded">
+                              🖨️ Cetak Slip
                             </button>
                           </td>
                         </tr>
@@ -471,34 +512,34 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 5: LOGISTIK & STOK BUKU */}
-          {adminTab === 'stok' && (
+          {/* TAB 5: INVENTARIS LOGISTIK */}
+          {adminTab === 'logistik' && (
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-6 shadow-md border border-emerald-100">
-                <h4 className="text-lg font-bold text-emerald-800 mb-3">➕ Tambah Judul Buku / Modul</h4>
-                <form onSubmit={handleTambahBuku} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <input type="text" placeholder="Judul Modul (Misal: Modul AHE 1)" required value={newBuku.judul_buku} onChange={(e) => setNewBuku({ ...newBuku, judul_buku: e.target.value })} className="px-4 py-2 border rounded-xl" />
-                  <select value={newBuku.kategori} onChange={(e) => setNewBuku({ ...newBuku, kategori: e.target.value })} className="px-4 py-2 border rounded-xl bg-white">
-                    <option value="AHE">AHE (Membaca)</option>
-                    <option value="ASE">ASE (Berhitung)</option>
-                    <option value="Mapel">Mata Pelajaran</option>
+                <h4 className="text-lg font-bold text-emerald-800 mb-3">➕ Tambah Inventaris Barang / Modul</h4>
+                <form onSubmit={handleTambahBarang} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <input type="text" placeholder="Nama Barang (Misal: Modul AHE 1)" required value={newBarang.nama_barang} onChange={(e) => setNewBarang({ ...newBarang, nama_barang: e.target.value })} className="px-4 py-2 border rounded-xl" />
+                  <select value={newBarang.kategori} onChange={(e) => setNewBarang({ ...newBarang, kategori: e.target.value })} className="px-4 py-2 border rounded-xl bg-white">
+                    <option value="buku">Buku / Modul</option>
+                    <option value="kartu">Kartu Tanda Siswa</option>
+                    <option value="atk">ATK</option>
                   </select>
-                  <input type="number" placeholder="Jumlah Stok" value={newBuku.stok_tersedia} onChange={(e) => setNewBuku({ ...newBuku, stok_tersedia: Number(e.target.value) })} className="px-4 py-2 border rounded-xl" />
-                  <button type="submit" className="bg-emerald-600 text-white font-bold py-2 rounded-xl">Simpan Buku</button>
+                  <input type="number" placeholder="Stok Awal" value={newBarang.stok} onChange={(e) => setNewBarang({ ...newBarang, stok: Number(e.target.value) })} className="px-4 py-2 border rounded-xl" />
+                  <button type="submit" className="bg-emerald-600 text-white font-bold py-2 rounded-xl">Simpan Logistik</button>
                 </form>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {daftarStokBuku.map((b) => (
+                {daftarInventaris.map((b) => (
                   <div key={b.id} className="bg-white p-5 rounded-2xl shadow border border-emerald-100 flex justify-between items-center">
                     <div>
-                      <h5 className="font-bold text-gray-900">{b.judul_buku}</h5>
-                      <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded">{b.kategori}</span>
-                      <p className="text-sm font-black text-emerald-600 mt-2">Stok: {b.stok_tersedia} Eksemplar</p>
+                      <h5 className="font-bold text-gray-900">{b.nama_barang}</h5>
+                      <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded uppercase">{b.kategori}</span>
+                      <p className="text-sm font-black text-emerald-600 mt-2">Stok: {b.stok} Unit</p>
                     </div>
                     <div className="flex flex-col space-y-1">
-                      <button onClick={() => handleUpdateStokBuku(b.id, 1)} className="bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded text-xs">+ Tambah</button>
-                      <button onClick={() => handleUpdateStokBuku(b.id, -1)} className="bg-red-100 text-red-800 font-bold px-3 py-1 rounded text-xs">- Kurang</button>
+                      <button onClick={() => handleUpdateStokBarang(b.id, 1)} className="bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded text-xs">+ Tambah</button>
+                      <button onClick={() => handleUpdateStokBarang(b.id, -1)} className="bg-red-100 text-red-800 font-bold px-3 py-1 rounded text-xs">- Kurang</button>
                     </div>
                   </div>
                 ))}
@@ -506,25 +547,31 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 6: REKAP IZIN */}
+          {/* TAB 6: PERIZINAN SISWA */}
           {adminTab === 'izin' && (
             <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
-              <h3 className="text-xl font-bold text-[#D95338] mb-4">Daftar Pengajuan Izin Siswa</h3>
+              <h3 className="text-xl font-bold text-[#D95338] mb-4">Daftar Pengajuan Perizinan Siswa</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-red-50 text-[#D95338] uppercase text-xs">
                     <tr>
                       <th className="p-3">Nama Murid</th>
                       <th className="p-3">Tanggal Izin</th>
-                      <th className="p-3">Alasan Tidak Masuk</th>
+                      <th className="p-3">Alasan</th>
+                      <th className="p-3">Status Izin</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {daftarIzin.map((i, idx) => (
-                      <tr key={idx} className="border-b">
-                        <td className="p-3 font-bold">{i.nama_murid}</td>
+                    {daftarPerizinan.map((i) => (
+                      <tr key={i.id} className="border-b">
+                        <td className="p-3 font-bold">{i.siswa?.nama_murid || 'Siswa'}</td>
                         <td className="p-3 font-semibold text-amber-600">{i.tanggal_izin}</td>
                         <td className="p-3">{i.alasan}</td>
+                        <td className="p-3">
+                          <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded uppercase">
+                            {i.status_izin}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -533,7 +580,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 7: PAKET BELAJAR */}
+          {/* TAB 7: MASTER PAKET */}
           {adminTab === 'paket' && (
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-6 shadow-md border border-amber-200">
@@ -609,7 +656,7 @@ export default function App() {
                       📚
                     </div>
                     <h4 className="text-xl font-bold text-gray-900 mb-2">{paket.nama_paket}</h4>
-                    <p className="text-gray-600 text-sm mb-4">{paket.deskripsi || 'Program bimbingan intensif.'}</p>
+                    <p className="text-gray-600 text-sm mb-4">{paket.deskripsi || 'Program bimbingan intensif 12 pertemuan.'}</p>
                     <div className="text-xs font-semibold uppercase text-[#D95338] tracking-wider">
                       Kategori: {paket.kategori}
                     </div>
@@ -693,7 +740,7 @@ export default function App() {
                           onChange={(e) => setFormDaftar({ ...formDaftar, jenjang_sekolah: e.target.value })}
                           className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#581878] outline-none bg-white"
                         >
-                          <option value="PAUD/TK">PAUD / TK</option>
+                          <option value="TK">PAUD / TK</option>
                           <option value="SD Kelas 1-3">SD Kelas 1 - 3</option>
                           <option value="SD Kelas 4-6">SD Kelas 4 - 6</option>
                           <option value="SMP">SMP</option>
@@ -723,15 +770,18 @@ export default function App() {
                 ) : (
                   <form onSubmit={handleIzinSubmit} className="space-y-5">
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Nama Murid</label>
-                      <input
-                        type="text"
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Pilih Nama Murid</label>
+                      <select
                         required
-                        value={formIzin.nama_murid}
-                        onChange={(e) => setFormIzin({ ...formIzin, nama_murid: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#D95338] outline-none"
-                        placeholder="Nama lengkap murid"
-                      />
+                        value={formIzin.siswa_id}
+                        onChange={(e) => setFormIzin({ ...formIzin, siswa_id: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#D95338] outline-none bg-white"
+                      >
+                        <option value="">-- Pilih Nama Murid Terdaftar --</option>
+                        {daftarSiswa.map(s => (
+                          <option key={s.id} value={s.id}>{s.nama_murid} (Orang Tua: {s.nama_orang_tua})</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
