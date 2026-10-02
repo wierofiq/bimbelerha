@@ -1,5 +1,4 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import LandingPage from './pages/landing/LandingPage';
 import FormPendaftaran from './pages/landing/FormPendaftaran';
 import FormIzin from './pages/landing/FormIzin';
 import DashboardAdmin from './pages/admin/Dashboard';
