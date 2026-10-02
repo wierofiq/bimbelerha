@@ -164,42 +164,28 @@ export default function App() {
     <div className="min-h-screen bg-[#FFFDF0] font-sans text-gray-800">
       {/* NAVBAR */}
       <nav className="sticky top-0 z-50 bg-[#581878] shadow-lg border-b-4 border-[#F59E0B]">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="bg-white rounded-xl px-2 py-1 shadow-md">
-              <span className="text-2xl font-black tracking-wider text-[#581878]">
-                Er<span className="text-[#D95338]">Ha</span>
-              </span>
-            </div>
-            <div>
-              <h1 className="text-white font-extrabold text-lg leading-none">Bimbel ErHa</h1>
-              <p className="text-[#F59E0B] font-bold text-xs">Rumah Hebat</p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            {user ? (
-              <div className="flex items-center space-x-3">
-                <span className="text-xs bg-amber-400 text-purple-950 font-black px-3 py-1 rounded-full">
-                  Admin Logged In
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-4 rounded-full text-sm transition"
-                >
-                  Keluar
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowLoginModal(true)}
-                className="bg-purple-900 hover:bg-purple-950 text-white font-bold py-1.5 px-4 rounded-full text-sm border border-purple-400 transition"
-              >
-                🔐 Login Admin
-              </button>
-            )}
-          </div>
-        </div>
+        {/* Logo Bimbel ErHa dengan Path Aman Vite/GitHub Pages */}
+<div className="flex items-center space-x-3">
+  <div className="bg-white rounded-xl p-1.5 shadow-md flex items-center justify-center">
+    <img 
+      src={`${import.meta.env.BASE_URL}logo.png`} 
+      alt="Logo Bimbel ErHa" 
+      className="h-10 w-auto object-contain"
+      onError={(e) => {
+        // Fallback jika file logo.png tidak ditemukan
+        e.target.onerror = null; 
+        e.target.style.display = 'none';
+      }}
+    />
+    <span className="text-2xl font-black tracking-wider text-[#581878] ml-1">
+      Er<span className="text-[#D95338]">Ha</span>
+    </span>
+  </div>
+  <div>
+    <h1 className="text-white font-extrabold text-lg leading-none">Bimbel ErHa</h1>
+    <p className="text-[#F59E0B] font-bold text-xs">Rumah Hebat</p>
+  </div>
+</div>
       </nav>
 
       {/* JIKA ADMIN LOGGED IN: TAMPILKAN DASHBOARD ADMIN */}
