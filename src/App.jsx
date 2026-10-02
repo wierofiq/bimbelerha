@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://YOUR_SUPABASE_URL.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+// ✅ BENAR (Menggunakan URL dan Key asli Supabase Anda)
+const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co'; // Ganti dengan Project URL Anda
+const supabaseAnonKey = 'izifwpviqpyxauafdlge'; // Ganti dengan anon/public key Anda
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
