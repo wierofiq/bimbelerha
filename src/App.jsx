@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Inisialisasi Supabase Client
-// ✅ BENAR (Menggunakan URL dan Key asli Supabase Anda)
-const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co'; // Ganti dengan Project URL Anda
-const supabaseAnonKey = 'izifwpviqpyxauafdlge'; // Ganti dengan anon/public key Anda
+// Inisialisasi Supabase Client dengan Kunci Publik Anda
+const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -13,18 +12,18 @@ export default function App() {
   const [selectedPaket, setSelectedPaket] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Auth State (Login Admin)
+  // State Otentikasi Admin
   const [user, setUser] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Data Dashboard Admin
+  // State Data Dashboard Admin
   const [daftarSiswa, setDaftarSiswa] = useState([]);
   const [daftarIzin, setDaftarIzin] = useState([]);
 
-  // Form State Pendaftaran
+  // State Form Pendaftaran
   const [formDaftar, setFormDaftar] = useState({
     nama_murid: '',
     nama_orang_tua: '',
@@ -33,7 +32,7 @@ export default function App() {
     jenjang_sekolah: 'PAUD/TK',
   });
 
-  // Form State Izin
+  // State Form Izin Belajar
   const [formIzin, setFormIzin] = useState({
     nama_murid: '',
     no_hp: '',
@@ -41,9 +40,8 @@ export default function App() {
     alasan: '',
   });
 
-  // Cek Session Sesi Login & Ambil Paket
+  // Memeriksa Sesi Login & Mengambil Data Paket
   useEffect(() => {
-    // Cek user terautentikasi
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) fetchAdminData();
@@ -61,12 +59,13 @@ export default function App() {
     };
   }, []);
 
-  // Fetch Paket Belajar
+  // Mengambil Daftar Paket Belajar dari Supabase
   async function fetchPaket() {
     const { data, error } = await supabase.from('paket_belajar').select('*').eq('is_active', true);
     if (!error && data && data.length > 0) {
       setPaketList(data);
     } else {
+      // Fallback data jika tabel belum diisi
       setPaketList([
         { id: '1', nama_paket: 'Baca AHE', kategori: 'baca', deskripsi: 'Program membaca cepat & ramah anak' },
         { id: '2', nama_paket: 'Berhitung ASE', kategori: 'berhitung', deskripsi: 'Aritmatika ceria dan cepat' },
@@ -78,7 +77,7 @@ export default function App() {
     }
   }
 
-  // Fetch Data untuk Dashboard Admin
+  // Mengambil Data Pendaftaran & Izin untuk Admin
   async function fetchAdminData() {
     const { data: siswa } = await supabase.from('siswa').select('*').order('created_at', { ascending: false });
     const { data: izin } = await supabase.from('izin_siswa').select('*').order('created_at', { ascending: false });
@@ -86,7 +85,7 @@ export default function App() {
     if (izin) setDaftarIzin(izin);
   }
 
-  // Handle Login Admin
+  // Prosedur Login Admin
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -98,7 +97,7 @@ export default function App() {
     });
 
     if (error) {
-      setLoginError('Email atau password salah: ' + error.message);
+      setLoginError('Login gagal: ' + error.message);
     } else {
       setShowLoginModal(false);
       setLoginEmail('');
@@ -107,7 +106,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // Handle Logout
+  // Prosedur Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -121,6 +120,7 @@ export default function App() {
     }
   };
 
+  // Pengiriman Form Pendaftaran
   const handleDaftarSubmit = async (e) => {
     e.preventDefault();
     if (selectedPaket.length === 0) {
@@ -130,7 +130,9 @@ export default function App() {
     setLoading(true);
 
     try {
-      const { data: siswaData } = await supabase.from('siswa').insert([formDaftar]).select();
+      const { data: siswaData, error: siswaErr } = await supabase.from('siswa').insert([formDaftar]).select();
+      if (siswaErr) console.warn(siswaErr);
+
       if (siswaData && siswaData[0]) {
         const relasiPaket = selectedPaket.map((pId) => ({
           siswa_id: siswaData[0].id,
@@ -148,6 +150,7 @@ export default function App() {
     }
   };
 
+  // Pengiriman Form Izin Belajar
   const handleIzinSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -165,36 +168,56 @@ export default function App() {
     <div className="min-h-screen bg-[#FFFDF0] font-sans text-gray-800">
       {/* NAVBAR */}
       <nav className="sticky top-0 z-50 bg-[#581878] shadow-lg border-b-4 border-[#F59E0B]">
-        {/* Logo Bimbel ErHa dengan Path Aman Vite/GitHub Pages */}
-<div className="flex items-center space-x-3">
-  <div className="bg-white rounded-xl p-1.5 shadow-md flex items-center justify-center">
-    <img 
-      src={`${import.meta.env.BASE_URL}logo.png`} 
-      alt="Logo Bimbel ErHa" 
-      className="h-10 w-auto object-contain"
-      onError={(e) => {
-        // Fallback jika file logo.png tidak ditemukan
-        e.target.onerror = null; 
-        e.target.style.display = 'none';
-      }}
-    />
-    <span className="text-2xl font-black tracking-wider text-[#581878] ml-1">
-      Er<span className="text-[#D95338]">Ha</span>
-    </span>
-  </div>
-  <div>
-    <h1 className="text-white font-extrabold text-lg leading-none">Bimbel ErHa</h1>
-    <p className="text-[#F59E0B] font-bold text-xs">Rumah Hebat</p>
-  </div>
-</div>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <div className="bg-white rounded-xl p-1.5 shadow-md flex items-center justify-center">
+              <img 
+                src={`${import.meta.env.BASE_URL}logo.png`} 
+                alt="Logo" 
+                className="h-9 w-auto object-contain"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+              <span className="text-2xl font-black tracking-wider text-[#581878] ml-1">
+                Er<span className="text-[#D95338]">Ha</span>
+              </span>
+            </div>
+            <div>
+              <h1 className="text-white font-extrabold text-lg leading-none">Bimbel ErHa</h1>
+              <p className="text-[#F59E0B] font-bold text-xs">Rumah Hebat</p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {user ? (
+              <div className="flex items-center space-x-3">
+                <span className="text-xs bg-amber-400 text-purple-950 font-black px-3 py-1 rounded-full">
+                  Admin Logged In
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-4 rounded-full text-sm transition"
+                >
+                  Keluar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="bg-purple-900 hover:bg-purple-950 text-white font-bold py-1.5 px-4 rounded-full text-sm border border-purple-400 transition"
+              >
+                🔐 Login Admin
+              </button>
+            )}
+          </div>
+        </div>
       </nav>
 
-      {/* JIKA ADMIN LOGGED IN: TAMPILKAN DASHBOARD ADMIN */}
+      {/* JIKA LOGGED IN: TAMPILKAN DASHBOARD ADMIN */}
       {user ? (
         <div className="max-w-6xl mx-auto px-4 py-10">
           <h2 className="text-3xl font-black text-[#581878] mb-6">Panel Kelola Admin & Tentor</h2>
           
-          {/* TABEL SISWA BARU */}
+          {/* TABEL PENDAFTARAN SISWA */}
           <div className="bg-white rounded-2xl p-6 shadow-md mb-8 border border-purple-100">
             <h3 className="text-xl font-bold text-[#581878] mb-4">📋 Pendaftaran Siswa Baru</h3>
             <div className="overflow-x-auto">
@@ -229,7 +252,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* TABEL IZIN SISWA */}
+          {/* TABEL IZIN BELAJAR */}
           <div className="bg-white rounded-2xl p-6 shadow-md border border-purple-100">
             <h3 className="text-xl font-bold text-[#D95338] mb-4">📩 Daftar Izin Belajar Siswa</h3>
             <div className="overflow-x-auto">
@@ -261,7 +284,7 @@ export default function App() {
           </div>
         </div>
       ) : (
-        /* TAMPILAN PUBLIK BISA DILIHAT WALI MURID */
+        /* TAMPILAN UNTUK UMUM / WALI MURID */
         <>
           {/* HERO SECTION */}
           <section className="bg-gradient-to-b from-[#581878] via-[#6B21A8] to-[#FFFDF0] text-white pt-12 pb-20 px-4 text-center">
@@ -278,7 +301,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* PAKET BELAJAR SECTION */}
+          {/* PAKET BELAJAR */}
           <section className="max-w-6xl mx-auto px-4 -mt-12 mb-16">
             <div className="text-center mb-10">
               <h3 className="text-3xl font-extrabold text-[#581878]">Pilihan Paket Belajar</h3>
@@ -317,7 +340,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* FORM PENDAFTARAN & IZIN */}
+          {/* FORM SECTION (PENDAFTARAN & IZIN) */}
           <section id="form-section" className="max-w-3xl mx-auto px-4 mb-20">
             <div className="bg-white rounded-3xl shadow-xl border-2 border-purple-100 overflow-hidden">
               <div className="flex border-b border-gray-100 bg-purple-50">
