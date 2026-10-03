@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // Inisialisasi Supabase Client
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
   const [showEditPasswordModal, setShowEditPasswordModal] = useState(false);
   const [expandedSiswaId, setExpandedSiswaId] = useState(null);
   const [filterBulanPresensi, setFilterBulanPresensi] = useState('');
+  const [filterMentorPresensi, setFilterMentorPresensi] = useState(''); // Filter Presensi Berdasarkan Guru
   const [searchSiswaBayar, setSearchSiswaBayar] = useState('');
 
   // Form States
@@ -116,7 +118,7 @@ export default function App() {
       supabase.from('siswa').select('*').order('created_at', { ascending: false }),
       supabase.from('mentor').select('*').order('created_at', { ascending: false }),
       supabase.from('periode_belajar').select('*, siswa(nama_murid, status), paket_belajar(nama_paket)').order('created_at', { ascending: false }),
-      supabase.from('presensi_siswa').select('*, mentor(nama_mentor), periode_belajar(siswa(nama_murid, siswa_id), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false }),
+      supabase.from('presensi_siswa').select('*, mentor(nama_mentor, id), periode_belajar(siswa(nama_murid, siswa_id, id), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false }),
       supabase.from('pembayaran_siswa').select('*, siswa(nama_murid)').order('tanggal_pembayaran', { ascending: false }),
       supabase.from('presensi_mentor').select('*, mentor(nama_mentor)').order('tanggal', { ascending: false }),
       supabase.from('penggajian_mentor').select('*, mentor(nama_mentor, honor_per_jam)').order('created_at', { ascending: false }),
@@ -176,6 +178,35 @@ export default function App() {
     }
   };
 
+  // PERBAIKAN: Fungsi Hapus Siswa secara Aman (Cascade Manual)
+  const handleHapusSiswa = async (siswaId, namaSiswa) => {
+    if (!window.confirm(`Hapus data siswa "${namaSiswa}" beserta seluruh riwayat periode, presensi, dan pembayarannya?`)) return;
+    try {
+      // 1. Ambil semua periode belajar milik siswa ini
+      const periodeIds = daftarPeriode.filter(p => p.siswa_id === siswaId).map(p => p.id);
+      
+      // 2. Hapus presensi siswa yang terkait dengan periode tersebut
+      if (periodeIds.length > 0) {
+        await supabase.from('presensi_siswa').delete().in('periode_id', periodeIds);
+      }
+      
+      // 3. Hapus data pembayaran siswa
+      await supabase.from('pembayaran_siswa').delete().eq('siswa_id', siswaId);
+
+      // 4. Hapus periode belajar
+      await supabase.from('periode_belajar').delete().eq('siswa_id', siswaId);
+
+      // 5. Hapus data utama siswa
+      const { error } = await supabase.from('siswa').delete().eq('id', siswaId);
+      if (error) throw error;
+
+      alert('✅ Data siswa berhasil dihapus secara permanen.');
+      fetchAllData();
+    } catch (err) {
+      alert('Gagal menghapus siswa: ' + err.message);
+    }
+  };
+
   const handleRolloverPeriode = async (periodeLama) => {
     if (!window.confirm(`Lakukan Rollover untuk ${periodeLama.siswa?.nama_murid}? Ini akan membuka periode baru 12 pertemuan.`)) return;
     try {
@@ -195,7 +226,7 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error: errAuth } = await supabase.auth.signUp({ email: newMentor.email, password: newMentor.password, options: { data: { role: 'guru' } } });
+      await supabase.auth.signUp({ email: newMentor.email, password: newMentor.password, options: { data: { role: 'guru' } } });
       const { error: errDb } = await supabase.from('mentor').insert([{ nama_mentor: newMentor.nama_mentor, email: newMentor.email, no_hp: newMentor.no_hp, alamat: newMentor.alamat, honor_per_jam: newMentor.honor_per_jam, status: newMentor.status }]);
       if (errDb) throw errDb;
       alert('✅ Mentor berhasil didaftarkan! Mengarahkan ke WhatsApp...');
@@ -206,7 +237,6 @@ export default function App() {
     } catch (err) { alert('Gagal menambah mentor: ' + err.message); } finally { setLoading(false); }
   };
 
-  // TAMBAHAN BARU: Fungsi untuk mengubah delegasi hak akses mentor
   const handleToggleAksesInventaris = async (mentorId, currentAkses) => {
     const aksi = currentAkses ? 'MENCABUT' : 'MEMBERIKAN';
     if (window.confirm(`Anda yakin ingin ${aksi} delegasi akses modul/inventaris untuk mentor ini?`)) {
@@ -349,7 +379,7 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-[#581878] shadow-lg border-b-4 border-[#F59E0B]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <img src="public/logo.png" alt="Bimbel ErHa Logo" className="h-10 w-10 object-contain bg-white rounded-full p-1 shadow-sm" />
+            <img src="/logo.png" alt="Bimbel ErHa Logo" className="h-10 w-10 object-contain bg-white rounded-full p-1 shadow-sm" />
             <div>
               <h1 className="text-white font-extrabold text-lg leading-none">Bimbel ErHa</h1>
               <p className="text-[#F59E0B] font-bold text-xs">Rumah Hebat</p>
@@ -383,7 +413,7 @@ export default function App() {
             <div>
               <div className="flex overflow-x-auto border-b-2 border-purple-200 mb-6 space-x-2 pb-1">
                 <button onClick={() => setAdminTab('siswa')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'siswa' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📋 SISWA</button>
-                <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍‍🏫 MENTOR</button>
+                <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍‍‍🏫 MENTOR</button>
                 <button onClick={() => setAdminTab('pembayaran')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'pembayaran' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💵 PEMBAYARAN</button>
                 <button onClick={() => setAdminTab('modul')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'modul' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📚 MODUL & INVENTARIS</button>
               </div>
@@ -395,7 +425,7 @@ export default function App() {
                     <button onClick={() => setSiswaSubTab('persetujuan')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'persetujuan' ? 'bg-amber-400 text-purple-950' : 'bg-white'}`}>Persetujuan Baru</button>
                     <button onClick={() => setSiswaSubTab('data')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'data' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Data Siswa & Rollover</button>
                     <button onClick={() => setSiswaSubTab('tambah_manual')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'tambah_manual' ? 'bg-purple-900 text-white' : 'bg-white'}`}>+ Tambah Internal</button>
-                    <button onClick={() => setSiswaSubTab('presensi')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'presensi' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Rekap Kehadiran</button>
+                    <button onClick={() => setSiswaSubTab('presensi')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'presensi' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Rekap Kehadiran Guru</button>
                   </div>
 
                   {siswaSubTab === 'persetujuan' && (
@@ -460,7 +490,8 @@ export default function App() {
                                   <td className="p-3">{s.nama_orang_tua} <br/><span className="text-gray-500 text-xs block">{s.no_hp}</span></td>
                                   <td className="p-3 text-center space-x-1 md:space-x-2">
                                     <button onClick={() => setExpandedSiswaId(isExpanded ? null : s.id)} className={`px-3 py-1.5 rounded text-xs font-bold transition shadow ${isExpanded ? 'bg-[#581878] text-white' : 'bg-blue-100 text-blue-700'}`}>{isExpanded ? 'Tutup Detail' : 'Detail Presensi'}</button>
-                                    <button className="bg-red-100 text-red-700 px-3 py-1.5 rounded text-xs font-bold">Hapus</button>
+                                    {/* PERBAIKAN: Tombol Hapus Terhubung ke Fungsi */}
+                                    <button onClick={() => handleHapusSiswa(s.id, s.nama_murid)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded text-xs font-bold transition">Hapus</button>
                                   </td>
                                 </tr>
                                 {isExpanded && (
@@ -511,22 +542,40 @@ export default function App() {
                   {siswaSubTab === 'presensi' && (
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100">
                       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
-                        <h3 className="text-lg font-bold text-[#581878]">Rekap Presensi Seluruh Cabang</h3>
-                        <div className="flex items-center space-x-2">
-                          <label className="text-sm font-bold text-gray-700">Filter Bulan:</label>
-                          <input type="month" value={filterBulanPresensi} onChange={e => setFilterBulanPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm outline-none" />
+                        <h3 className="text-lg font-bold text-[#581878]">Rekap Presensi Siswa per Guru Aktif</h3>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {/* Filter Guru */}
+                          <div>
+                            <select value={filterMentorPresensi} onChange={e => setFilterMentorPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm outline-none bg-purple-50 text-purple-950 font-bold">
+                              <option value="">-- Semua Guru / Mentor --</option>
+                              {daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}
+                            </select>
+                          </div>
+                          {/* Filter Bulan */}
+                          <div>
+                            <input type="month" value={filterBulanPresensi} onChange={e => setFilterBulanPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm outline-none" />
+                          </div>
                         </div>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm whitespace-nowrap">
-                          <thead className="bg-purple-50 text-[#581878]"><tr><th className="p-3">Tanggal</th><th className="p-3">Siswa</th><th className="p-3">Guru / Mentor</th><th className="p-3">Sesi</th><th className="p-3">Jurnal Belajar</th></tr></thead>
+                          <thead className="bg-purple-50 text-[#581878]"><tr><th className="p-3">Tanggal</th><th className="p-3">Nama Siswa</th><th className="p-3">Guru / Mentor Pengampu</th><th className="p-3 text-center">Sesi Ke-</th><th className="p-3">Jurnal Belajar</th></tr></thead>
                           <tbody>
-                            {daftarPresensiSiswa.filter(ps => filterBulanPresensi ? ps.tanggal_pertemuan.startsWith(filterBulanPresensi) : true).map(ps => (
+                            {daftarPresensiSiswa
+                              .filter(ps => filterBulanPresensi ? ps.tanggal_pertemuan.startsWith(filterBulanPresensi) : true)
+                              .filter(ps => filterMentorPresensi ? ps.mentor_id === filterMentorPresensi : true)
+                              .map(ps => (
                               <tr key={ps.id} className="border-b">
-                                <td className="p-3">{ps.tanggal_pertemuan}</td><td className="p-3 font-bold">{ps.periode_belajar?.siswa?.nama_murid}</td>
-                                <td className="p-3 text-purple-900 font-medium">{ps.mentor?.nama_mentor}</td><td className="p-3 font-bold">Ke-{ps.pertemuan_ke}</td><td className="p-3 text-gray-600">{ps.jurnal_materi}</td>
+                                <td className="p-3">{ps.tanggal_pertemuan}</td>
+                                <td className="p-3 font-bold">{ps.periode_belajar?.siswa?.nama_murid || 'Siswa tidak ditemukan'}</td>
+                                <td className="p-3 text-purple-900 font-bold">👩‍🏫 {ps.mentor?.nama_mentor || 'Mentor'}</td>
+                                <td className="p-3 font-bold text-center bg-gray-50">{ps.pertemuan_ke}</td>
+                                <td className="p-3 text-gray-600">{ps.jurnal_materi}</td>
                               </tr>
                             ))}
+                            {daftarPresensiSiswa.filter(ps => (filterBulanPresensi ? ps.tanggal_pertemuan.startsWith(filterBulanPresensi) : true) && (filterMentorPresensi ? ps.mentor_id === filterMentorPresensi : true)).length === 0 && (
+                              <tr><td colSpan="5" className="p-6 text-center text-gray-400 italic">Tidak ada rekap presensi yang cocok dengan filter.</td></tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
@@ -545,7 +594,6 @@ export default function App() {
                     <button onClick={() => setMentorSubTab('penggajian')} className={`px-4 py-2 rounded-lg font-bold text-xs ${mentorSubTab === 'penggajian' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Hitung Payroll</button>
                   </div>
 
-                  {/* KARTU DELEGASI MENTOR ADA DI SINI */}
                   {mentorSubTab === 'daftar' && (
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100">
                       <div className="flex justify-between items-center mb-4">
@@ -570,7 +618,6 @@ export default function App() {
                               </div>
                             </div>
                             
-                            {/* Tombol Aksi Hapus & Delegasi */}
                             <div className="flex flex-col space-y-1.5 ml-2 flex-shrink-0">
                               <button 
                                 onClick={() => handleToggleAksesInventaris(m.id, m.akses_inventaris)} 
@@ -732,7 +779,7 @@ export default function App() {
           )}
 
           {/* ======================================================= */}
-          {/* 👩‍🏫 PORTAL GURU (MENTOR)                                */}
+          {/* 👩‍‍🏫 PORTAL GURU (MENTOR)                                */}
           {/* ======================================================= */}
           {userRole === 'guru' && (
             <div className="space-y-6">
@@ -967,7 +1014,7 @@ export default function App() {
                 
                 <div className="p-8 pt-10">
                    <div className="flex justify-center mb-6">
-                      <img src="public/logo.png" alt="Logo" className="h-[72px] w-[72px] object-contain drop-shadow-md" />
+                      <img src="/logo.png" alt="Logo" className="h-[72px] w-[72px] object-contain drop-shadow-md" />
                    </div>
                    
                    <h3 className="text-2xl font-black text-[#581878] mb-1 text-center tracking-tight">Portal Internal</h3>
