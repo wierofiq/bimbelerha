@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import 'bootstrap/dist/css/bootstrap.min.css'; // <-- Pastikan CSS Bootstrap dimuat agar layout dan styling tampil benar
 
 // Inisialisasi Supabase Client
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
@@ -252,7 +253,7 @@ export default function App() {
 
   return (
     <div className="container py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
         <h2>Bimbel ErHa - Sistem Manajemen</h2>
         <div>
           <button className={`btn ${activeTab === 'admin' ? 'btn-dark' : 'btn-outline-dark'} me-2`} onClick={() => setActiveTab('admin')}>Dashboard Admin</button>
@@ -267,37 +268,39 @@ export default function App() {
           {/* 1. TABEL DATA SISWA & DETAIL */}
           <div className="card p-3 mb-4 shadow-sm">
             <h5>Data Siswa & Detail</h5>
-            <table className="table table-striped mt-2">
-              <thead>
-                <tr>
-                  <th>Nama Murid</th>
-                  <th>Jenjang</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {siswaList.map(s => (
-                  <tr key={s.id}>
-                    <td>{s.nama_murid}</td>
-                    <td>{s.jenjang_sekolah}</td>
-                    <td><span className="badge bg-info">{s.status}</span></td>
-                    <td>
-                      <button className="btn btn-sm btn-secondary" onClick={() => setDetailSiswaData(s)}>Detail</button>
-                    </td>
+            <div className="table-responsive">
+              <table className="table table-striped mt-2 align-middle">
+                <thead>
+                  <tr>
+                    <th>Nama Murid</th>
+                    <th>Jenjang</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {siswaList.map(s => (
+                    <tr key={s.id}>
+                      <td>{s.nama_murid}</td>
+                      <td>{s.jenjang_sekolah}</td>
+                      <td><span className="badge bg-info text-dark">{s.status}</span></td>
+                      <td>
+                        <button className="btn btn-sm btn-secondary" onClick={() => setDetailSiswaData(s)}>Detail</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* MODAL DETAIL SISWA */}
           {detailSiswaData && (
             <div className="card p-3 mb-4 bg-light border-info">
               <h5>Detail Siswa: {detailSiswaData.nama_murid}</h5>
-              <p><strong>Orang Tua:</strong> {detailSiswaData.nama_orang_tua || '-'}</p>
-              <p><strong>No HP:</strong> {detailSiswaData.no_hp || '-'}</p>
-              <p><strong>Alamat:</strong> {detailSiswaData.alamat || '-'}</p>
+              <p className="mb-1"><strong>Orang Tua:</strong> {detailSiswaData.nama_orang_tua || '-'}</p>
+              <p className="mb-1"><strong>No HP:</strong> {detailSiswaData.no_hp || '-'}</p>
+              <p className="mb-3"><strong>Alamat:</strong> {detailSiswaData.alamat || '-'}</p>
               <button className="btn btn-sm btn-dark" onClick={() => setDetailSiswaData(null)}>Tutup Detail</button>
             </div>
           )}
@@ -305,32 +308,34 @@ export default function App() {
           {/* 2. HALAMAN MENTOR & DELEGASI */}
           <div className="card p-3 mb-4 shadow-sm">
             <h5>Manajemen Mentor & Delegasi Wewenang</h5>
-            <table className="table table-bordered mt-2">
-              <thead>
-                <tr>
-                  <th>Nama Mentor</th>
-                  <th>Honor / Jam</th>
-                  <th>Delegasi Akses</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mentorList.map(m => (
-                  <tr key={m.id}>
-                    <td>{m.nama_mentor}</td>
-                    <td>Rp {m.honor_per_jam}</td>
-                    <td>
-                      <span className={`badge ${m.delegasi_perizinan ? 'bg-success' : 'bg-secondary'} me-1`}>Perizinan</span>
-                      <span className={`badge ${m.delegasi_inventaris ? 'bg-success' : 'bg-secondary'} me-1`}>Inventaris</span>
-                      <span className={`badge ${m.delegasi_konten ? 'bg-success' : 'bg-secondary'}`}>Konten</span>
-                    </td>
-                    <td>
-                      <button className="btn btn-sm btn-warning" onClick={() => setEditMentorData(m)}>Edit & Delegasi</button>
-                    </td>
+            <div className="table-responsive">
+              <table className="table table-bordered mt-2 align-middle">
+                <thead>
+                  <tr>
+                    <th>Nama Mentor</th>
+                    <th>Honor / Jam</th>
+                    <th>Delegasi Akses</th>
+                    <th>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {mentorList.map(m => (
+                    <tr key={m.id}>
+                      <td>{m.nama_mentor}</td>
+                      <td>Rp {m.honor_per_jam}</td>
+                      <td>
+                        <span className={`badge ${m.delegasi_perizinan ? 'bg-success' : 'bg-secondary'} me-1`}>Perizinan</span>
+                        <span className={`badge ${m.delegasi_inventaris ? 'bg-success' : 'bg-secondary'} me-1`}>Inventaris</span>
+                        <span className={`badge ${m.delegasi_konten ? 'bg-success' : 'bg-secondary'}`}>Konten</span>
+                      </td>
+                      <td>
+                        <button className="btn btn-sm btn-warning" onClick={() => setEditMentorData(m)}>Edit & Delegasi</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* MODAL EDIT MENTOR */}
@@ -339,24 +344,24 @@ export default function App() {
               <h5>Edit Mentor: {editMentorData.nama_mentor}</h5>
               <form onSubmit={updateMentor}>
                 <div className="mb-2">
-                  <label>Nama Mentor</label>
+                  <label className="form-label">Nama Mentor</label>
                   <input type="text" className="form-control" value={editMentorData.nama_mentor} onChange={e => setEditMentorData({...editMentorData, nama_mentor: e.target.value})} />
                 </div>
                 <div className="mb-2">
-                  <label>Honor per Jam</label>
+                  <label className="form-label">Honor per Jam</label>
                   <input type="number" className="form-control" value={editMentorData.honor_per_jam} onChange={e => setEditMentorData({...editMentorData, honor_per_jam: e.target.value})} />
                 </div>
                 <div className="form-check mb-1">
-                  <input type="checkbox" className="form-check-input" checked={editMentorData.delegasi_perizinan || false} onChange={e => setEditMentorData({...editMentorData, delegasi_perizinan: e.target.checked})} />
-                  <label className="form-check-label">Delegasi Perizinan</label>
+                  <input type="checkbox" className="form-check-input" id="delPerizinan" checked={editMentorData.delegasi_perizinan || false} onChange={e => setEditMentorData({...editMentorData, delegasi_perizinan: e.target.checked})} />
+                  <label className="form-check-label" htmlFor="delPerizinan">Delegasi Perizinan</label>
                 </div>
                 <div className="form-check mb-1">
-                  <input type="checkbox" className="form-check-input" checked={editMentorData.delegasi_inventaris || false} onChange={e => setEditMentorData({...editMentorData, delegasi_inventaris: e.target.checked})} />
-                  <label className="form-check-label">Delegasi Inventaris Modul</label>
+                  <input type="checkbox" className="form-check-input" id="delInventaris" checked={editMentorData.delegasi_inventaris || false} onChange={e => setEditMentorData({...editMentorData, delegasi_inventaris: e.target.checked})} />
+                  <label className="form-check-label" htmlFor="delInventaris">Delegasi Inventaris Modul</label>
                 </div>
                 <div className="form-check mb-3">
-                  <input type="checkbox" className="form-check-input" checked={editMentorData.delegasi_konten || false} onChange={e => setEditMentorData({...editMentorData, delegasi_konten: e.target.checked})} />
-                  <label className="form-check-label">Delegasi Konten</label>
+                  <input type="checkbox" className="form-check-input" id="delKonten" checked={editMentorData.delegasi_konten || false} onChange={e => setEditMentorData({...editMentorData, delegasi_konten: e.target.checked})} />
+                  <label className="form-check-label" htmlFor="delKonten">Delegasi Konten</label>
                 </div>
                 <button type="submit" className="btn btn-success btn-sm me-2">Simpan</button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditMentorData(null)}>Batal</button>
@@ -403,33 +408,35 @@ export default function App() {
               </div>
             </form>
 
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th>Siswa</th>
-                  <th>Tanggal Bayar</th>
-                  <th>Item</th>
-                  <th>Jumlah</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pembayaranList.map(p => (
-                  <tr key={p.id}>
-                    <td>{p.siswa?.nama_murid || '-'}</td>
-                    <td>{p.tanggal_pembayaran ? p.tanggal_pembayaran.split('T')[0] : '-'}</td>
-                    <td>{p.item_bayar}</td>
-                    <td>Rp {p.jumlah_bayar}</td>
-                    <td>{p.status_pembayaran}</td>
-                    <td>
-                      <button className="btn btn-sm btn-warning me-1" onClick={() => setFormPembayaran({ id: p.id, siswa_id: p.siswa_id, periode_id: p.periode_id, tanggal_bayar: p.tanggal_pembayaran?.split('T')[0], item_bayar: p.item_bayar, jumlah_bayar: p.jumlah_bayar })}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => hapusPembayaran(p.id)}>Hapus</button>
-                    </td>
+            <div className="table-responsive">
+              <table className="table table-bordered align-middle">
+                <thead>
+                  <tr>
+                    <th>Siswa</th>
+                    <th>Tanggal Bayar</th>
+                    <th>Item</th>
+                    <th>Jumlah</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pembayaranList.map(p => (
+                    <tr key={p.id}>
+                      <td>{p.siswa?.nama_murid || '-'}</td>
+                      <td>{p.tanggal_pembayaran ? p.tanggal_pembayaran.split('T')[0] : '-'}</td>
+                      <td>{p.item_bayar}</td>
+                      <td>Rp {p.jumlah_bayar}</td>
+                      <td><span className="badge bg-success">{p.status_pembayaran}</span></td>
+                      <td>
+                        <button className="btn btn-sm btn-warning me-1" onClick={() => setFormPembayaran({ id: p.id, siswa_id: p.siswa_id, periode_id: p.periode_id, tanggal_bayar: p.tanggal_pembayaran?.split('T')[0], item_bayar: p.item_bayar, jumlah_bayar: p.jumlah_bayar })}>Edit</button>
+                        <button className="btn btn-sm btn-danger" onClick={() => hapusPembayaran(p.id)}>Hapus</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* 4. PENGGAJIAN MENTOR */}
@@ -458,31 +465,33 @@ export default function App() {
               </div>
             </form>
 
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th>Mentor</th>
-                  <th>Bulan / Periode</th>
-                  <th>Bonus Kinerja</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {penggajianList.map(g => (
-                  <tr key={g.id}>
-                    <td>{g.mentor?.nama_mentor || '-'}</td>
-                    <td>{g.bulan_periode}</td>
-                    <td>Rp {g.bonus_kinerja}</td>
-                    <td>{g.status_pembayaran}</td>
-                    <td>
-                      <button className="btn btn-sm btn-warning me-1" onClick={() => setFormPenggajian({ id: g.id, mentor_id: g.mentor_id, bulan_periode: g.bulan_periode, bonus_kinerja: g.bonus_kinerja })}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => hapusPenggajian(g.id)}>Hapus</button>
-                    </td>
+            <div className="table-responsive">
+              <table className="table table-bordered align-middle">
+                <thead>
+                  <tr>
+                    <th>Mentor</th>
+                    <th>Bulan / Periode</th>
+                    <th>Bonus Kinerja</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {penggajianList.map(g => (
+                    <tr key={g.id}>
+                      <td>{g.mentor?.nama_mentor || '-'}</td>
+                      <td>{g.bulan_periode}</td>
+                      <td>Rp {g.bonus_kinerja}</td>
+                      <td><span className="badge bg-secondary">{g.status_pembayaran}</span></td>
+                      <td>
+                        <button className="btn btn-sm btn-warning me-1" onClick={() => setFormPenggajian({ id: g.id, mentor_id: g.mentor_id, bulan_periode: g.bulan_periode, bonus_kinerja: g.bonus_kinerja })}>Edit</button>
+                        <button className="btn btn-sm btn-danger" onClick={() => hapusPenggajian(g.id)}>Hapus</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
         </div>
@@ -495,7 +504,7 @@ export default function App() {
             <h5 className="mb-3">Profil Guru & Ganti Foto</h5>
             <form onSubmit={updateProfilGuru}>
               <div className="mb-3 text-center">
-                <img src={guruLogin.foto_url || 'https://via.placeholder.com/100'} className="rounded-circle mb-2" width="100" height="100" style={{objectFit: 'cover'}} alt="Foto Guru" />
+                <img src={guruLogin.foto_url || 'https://via.placeholder.com/100'} className="rounded-circle mb-2 border" width="100" height="100" style={{objectFit: 'cover'}} alt="Foto Guru" />
                 <input type="text" className="form-control form-control-sm mt-2" placeholder="URL Foto Profil" value={guruLogin.foto_url || ''} onChange={e => setGuruLogin({...guruLogin, foto_url: e.target.value})} />
               </div>
               <div className="mb-3">
@@ -522,26 +531,28 @@ export default function App() {
               <input type="date" className="form-control" value={tanggalMentoring} onChange={e => loadDaftarMentoring(e.target.value)} />
             </div>
             <button className="btn btn-outline-secondary btn-sm mb-3" onClick={() => loadDaftarMentoring(tanggalMentoring)}>Muat Jadwal</button>
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Siswa</th>
-                  <th>Periode</th>
-                  <th>Pertemuan Ke</th>
-                  <th>Jurnal Materi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {daftarMentoring.map(m => (
-                  <tr key={m.id}>
-                    <td>{m.siswa?.nama_murid}</td>
-                    <td>{m.periode_belajar?.bulan_periode}</td>
-                    <td>{m.pertemuan_ke}</td>
-                    <td>{m.jurnal_materi}</td>
+            <div className="table-responsive">
+              <table className="table table-striped align-middle">
+                <thead>
+                  <tr>
+                    <th>Siswa</th>
+                    <th>Periode</th>
+                    <th>Pertemuan Ke</th>
+                    <th>Jurnal Materi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {daftarMentoring.map(m => (
+                    <tr key={m.id}>
+                      <td>{m.siswa?.nama_murid}</td>
+                      <td>{m.periode_belajar?.bulan_periode}</td>
+                      <td>{m.pertemuan_ke}</td>
+                      <td>{m.jurnal_materi}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* 3. TAMBAH PRESENSI SISWA */}
@@ -565,7 +576,7 @@ export default function App() {
                     <span>{s.nama_murid} ({s.jenjang_sekolah})</span>
                     <div>
                       {s.periode_belajar && s.periode_belajar.map(p => (
-                        <button key={p.id} className="btn btn-sm btn-outline-primary ms-1" onClick={() => pilihSiswaPresensi(s, p)}>
+                        <button key={p.id} className="btn btn-sm btn-outline-primary ms-1" onClick={() => pilihSiswaUntukPresensi(s, p)}>
                           Pilih Periode ({p.bulan_periode})
                         </button>
                       ))}
@@ -577,7 +588,7 @@ export default function App() {
 
             {selectedSiswa && (
               <form onSubmit={simpanPresensi} className="border p-3 rounded bg-light">
-                <h6 className="text-success">Siswa Dipilih: {selectedSiswa.nama_murid}</h6>
+                <h6 className="text-success mb-3">Siswa Dipilih: {selectedSiswa.nama_murid}</h6>
                 <div className="mb-2">
                   <label className="form-label">Pertemuan Ke- (Otomatis)</label>
                   <input type="number" className="form-control" value={formPresensi.pertemuan_ke} readOnly />
@@ -594,7 +605,7 @@ export default function App() {
                     <option value="alfa">Alfa</option>
                   </select>
                 </div>
-                <div className="mb-2">
+                <div className="mb-3">
                   <label className="form-label">Jurnal Materi</label>
                   <textarea className="form-control" rows="2" value={formPresensi.jurnal_materi} onChange={e => setFormPresensi({...formPresensi, jurnal_materi: e.target.value})} required></textarea>
                 </div>
