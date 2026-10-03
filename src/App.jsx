@@ -39,10 +39,16 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showEditPasswordModal, setShowEditPasswordModal] = useState(false);
   const [expandedSiswaId, setExpandedSiswaId] = useState(null);
+  
+  // Filter & Paging States
   const [filterBulanPresensi, setFilterBulanPresensi] = useState('');
   const [filterMentorPresensi, setFilterMentorPresensi] = useState('');
   const [searchSiswaBayar, setSearchSiswaBayar] = useState('');
   
+  // State untuk Rekap Pembayaran (Admin)
+  const [filterBulanPembayaran, setFilterBulanPembayaran] = useState(new Date().toISOString().slice(0, 7));
+  const [currentPagePembayaran, setCurrentPagePembayaran] = useState(1);
+
   // Fitur Presensi Guru (Filter & Auto Increment)
   const [searchSiswaPresensi, setSearchSiswaPresensi] = useState(''); 
   const [isDropdownPresensiOpen, setIsDropdownPresensiOpen] = useState(false);
@@ -924,27 +930,82 @@ export default function App() {
                           </div>
                        </form>
                     </div>
+
                     <div className="bg-white p-6 rounded-2xl shadow-md border-2 border-purple-100">
-                      <h4 className="text-lg font-bold text-[#581878] mb-4">Riwayat Terakhir</h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm whitespace-nowrap">
-                          <thead className="bg-purple-50 text-[#581878]"><tr><th className="p-3">Tanggal</th><th className="p-3">Nama Siswa</th><th className="p-3">Item Dibayar</th><th className="p-3">Nominal</th><th className="p-3 text-center">Aksi</th></tr></thead>
-                          <tbody>
-                            {daftarPembayaran.map(pb => (
-                               <tr key={pb.id} className="border-b">
-                                 <td className="p-3">{formatTanggalIndo(pb.tanggal_pembayaran)}</td>
-                                 <td className="p-3 font-bold">{pb.siswa?.nama_murid}</td>
-                                 <td className="p-3"><span className="text-[#581878] font-bold bg-purple-50 px-2 py-1 rounded whitespace-normal">{pb.item_bayar}</span></td>
-                                 <td className="p-3 text-emerald-600 font-bold bg-emerald-50">Rp {Number(pb.jumlah_bayar).toLocaleString('id-ID')}</td>
-                                 <td className="p-3 text-center space-x-2">
-                                   <button onClick={() => openEditPembayaran(pb)} className="bg-amber-100 text-amber-800 px-3 py-1 rounded text-xs font-bold">Edit</button>
-                                   <button onClick={() => handleHapusPembayaran(pb.id)} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Hapus</button>
-                                 </td>
-                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                         <h4 className="text-lg font-bold text-[#581878]">Rekap Pembayaran</h4>
+                         <input 
+                            type="month" 
+                            value={filterBulanPembayaran} 
+                            onChange={e => { setFilterBulanPembayaran(e.target.value); setCurrentPagePembayaran(1); }} 
+                            className="border px-4 py-2 rounded-xl text-sm font-bold text-purple-900 bg-purple-50 outline-none" 
+                         />
                       </div>
+
+                      {(() => {
+                         // Filter Pembayaran
+                         const filteredPembayaran = filterBulanPembayaran 
+                            ? daftarPembayaran.filter(pb => pb.tanggal_pembayaran?.startsWith(filterBulanPembayaran))
+                            : daftarPembayaran;
+                         
+                         // Kalkulasi Total Penerimaan
+                         const totalPenerimaan = filteredPembayaran.reduce((sum, pb) => sum + (Number(pb.jumlah_bayar) || 0), 0);
+                         
+                         // Pagination Data
+                         const ITEMS_PER_PAGE = 15;
+                         const totalPagesPembayaran = Math.ceil(filteredPembayaran.length / ITEMS_PER_PAGE) || 1;
+                         const currentDataPembayaran = filteredPembayaran.slice((currentPagePembayaran - 1) * ITEMS_PER_PAGE, currentPagePembayaran * ITEMS_PER_PAGE);
+
+                         return (
+                            <>
+                               {/* Kotak Rekapitulasi Uang */}
+                               <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-6 flex justify-between items-center shadow-inner">
+                                  <span className="font-bold text-emerald-800 text-sm md:text-base">Total Penerimaan Bulan Ini:</span>
+                                  <span className="text-xl md:text-2xl font-black text-emerald-600">Rp {totalPenerimaan.toLocaleString('id-ID')}</span>
+                               </div>
+
+                               <div className="overflow-x-auto">
+                                 <table className="w-full text-left text-sm whitespace-nowrap">
+                                   <thead className="bg-purple-50 text-[#581878]"><tr><th className="p-3">Tanggal</th><th className="p-3">Nama Siswa</th><th className="p-3">Item Dibayar</th><th className="p-3">Nominal</th><th className="p-3 text-center">Aksi</th></tr></thead>
+                                   <tbody>
+                                     {currentDataPembayaran.map(pb => (
+                                        <tr key={pb.id} className="border-b">
+                                          <td className="p-3">{formatTanggalIndo(pb.tanggal_pembayaran)}</td>
+                                          <td className="p-3 font-bold">{pb.siswa?.nama_murid}</td>
+                                          <td className="p-3"><span className="text-[#581878] font-bold bg-purple-50 px-2 py-1 rounded whitespace-normal">{pb.item_bayar}</span></td>
+                                          <td className="p-3 text-emerald-600 font-bold bg-emerald-50">Rp {Number(pb.jumlah_bayar).toLocaleString('id-ID')}</td>
+                                          <td className="p-3 text-center space-x-2">
+                                            <button onClick={() => openEditPembayaran(pb)} className="bg-amber-100 text-amber-800 px-3 py-1 rounded text-xs font-bold">Edit</button>
+                                            <button onClick={() => handleHapusPembayaran(pb.id)} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Hapus</button>
+                                          </td>
+                                        </tr>
+                                     ))}
+                                     {currentDataPembayaran.length === 0 && (
+                                        <tr><td colSpan="5" className="p-6 text-center text-gray-400 italic">Belum ada data pembayaran di bulan ini.</td></tr>
+                                     )}
+                                   </tbody>
+                                 </table>
+                               </div>
+
+                               {/* Pagination Controls */}
+                               {filteredPembayaran.length > 0 && (
+                                  <div className="flex justify-between items-center mt-6 text-sm">
+                                      <button 
+                                         disabled={currentPagePembayaran === 1} 
+                                         onClick={() => setCurrentPagePembayaran(prev => Math.max(prev - 1, 1))}
+                                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg disabled:opacity-50 transition"
+                                      >Sebelumnya</button>
+                                      <span className="font-bold text-gray-600 bg-gray-50 px-4 py-2 rounded-lg border">Halaman {currentPagePembayaran} dari {totalPagesPembayaran}</span>
+                                      <button 
+                                         disabled={currentPagePembayaran === totalPagesPembayaran} 
+                                         onClick={() => setCurrentPagePembayaran(prev => Math.min(prev + 1, totalPagesPembayaran))}
+                                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg disabled:opacity-50 transition"
+                                      >Selanjutnya</button>
+                                  </div>
+                               )}
+                            </>
+                         )
+                      })()}
                     </div>
                  </div>
               )}
