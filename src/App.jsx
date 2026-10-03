@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
-const supabaseAnonKey ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -204,6 +204,19 @@ export default function App() {
       setNewMentor({ nama_mentor: '', email: '', password: '', no_hp: '', alamat: '', honor_per_jam: 25000, status: 'aktif' });
       fetchAllData();
     } catch (err) { alert('Gagal menambah mentor: ' + err.message); } finally { setLoading(false); }
+  };
+
+  // TAMBAHAN BARU: Fungsi untuk mengubah delegasi hak akses mentor
+  const handleToggleAksesInventaris = async (mentorId, currentAkses) => {
+    const aksi = currentAkses ? 'MENCABUT' : 'MEMBERIKAN';
+    if (window.confirm(`Anda yakin ingin ${aksi} delegasi akses modul/inventaris untuk mentor ini?`)) {
+      const { error } = await supabase.from('mentor').update({ akses_inventaris: !currentAkses }).eq('id', mentorId);
+      if (error) alert('Gagal memperbarui hak akses: ' + error.message);
+      else {
+        alert('✅ Hak akses delegasi berhasil diperbarui!');
+        fetchAllData();
+      }
+    }
   };
 
   const handleTambahPresensiMentor = async (e) => {
@@ -532,19 +545,46 @@ export default function App() {
                     <button onClick={() => setMentorSubTab('penggajian')} className={`px-4 py-2 rounded-lg font-bold text-xs ${mentorSubTab === 'penggajian' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Hitung Payroll</button>
                   </div>
 
+                  {/* KARTU DELEGASI MENTOR ADA DI SINI */}
                   {mentorSubTab === 'daftar' && (
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100">
-                      <h4 className="text-lg font-bold text-[#581878] mb-4">Daftar Guru / Mentor Aktif</h4>
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-lg font-bold text-[#581878]">Daftar Guru / Mentor Aktif</h4>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {daftarMentor.map(m => (
-                          <div key={m.id} className="border border-purple-100 rounded-xl p-4 flex items-center space-x-4 hover:shadow-md transition bg-gray-50/50">
-                            {m.foto_url ? <img src={m.foto_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-amber-400" /> : <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-2xl border">👤</div>}
-                            <div className="flex-1">
-                              <h5 className="font-bold text-gray-900">{m.nama_mentor}</h5>
-                              <p className="text-xs text-gray-500 break-all">{m.email}</p>
-                              <p className="text-xs text-[#581878] font-bold mt-1">Tarif: Rp {(m.honor_per_jam || 0).toLocaleString('id-ID')}/Jam</p>
+                          <div key={m.id} className="border border-purple-100 rounded-xl p-4 flex items-start space-x-4 hover:shadow-md transition bg-gray-50/50">
+                            {m.foto_url ? (
+                              <img src={m.foto_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-amber-400 flex-shrink-0" />
+                            ) : (
+                              <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-2xl border flex-shrink-0">👤</div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h5 className="font-bold text-gray-900 leading-tight truncate">{m.nama_mentor}</h5>
+                              <p className="text-[11px] text-gray-500 truncate">{m.email}</p>
+                              <p className="text-[11px] text-[#581878] font-bold mt-1">Tarif: Rp {(m.honor_per_jam || 0).toLocaleString('id-ID')}</p>
+                              <div className="mt-2">
+                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${m.akses_inventaris ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'}`}>
+                                    {m.akses_inventaris ? '✅ Akses Inventaris Aktif' : 'Akses Guru Standar'}
+                                 </span>
+                              </div>
                             </div>
-                            <button onClick={async () => { if(window.confirm('Hapus mentor ini permanen?')) { await supabase.from('mentor').delete().eq('id', m.id); fetchAllData(); } }} className="text-red-500 hover:bg-red-50 p-2 rounded-xl">🗑</button>
+                            
+                            {/* Tombol Aksi Hapus & Delegasi */}
+                            <div className="flex flex-col space-y-1.5 ml-2 flex-shrink-0">
+                              <button 
+                                onClick={() => handleToggleAksesInventaris(m.id, m.akses_inventaris)} 
+                                className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition border shadow-sm ${m.akses_inventaris ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}
+                              >
+                                {m.akses_inventaris ? 'Cabut Delegasi' : 'Beri Delegasi'}
+                              </button>
+                              <button 
+                                onClick={async () => { if(window.confirm('Hapus mentor ini permanen?')) { await supabase.from('mentor').delete().eq('id', m.id); fetchAllData(); } }} 
+                                className="px-2 py-1.5 rounded-lg text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 transition shadow-sm"
+                              >
+                                Hapus Guru
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -632,7 +672,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* ADMIN: TAB PEMBAYARAN (FIX Poin 4 & 5) */}
+              {/* ADMIN: TAB PEMBAYARAN */}
               {adminTab === 'pembayaran' && (
                  <div>
                     <div className="bg-white p-6 rounded-2xl shadow-md mb-6 border-t-4 border-[#F59E0B]">
@@ -644,7 +684,6 @@ export default function App() {
                                <input type="text" placeholder="Ketik nama untuk menyaring daftar..." value={searchSiswaBayar} onChange={e => setSearchSiswaBayar(e.target.value)} className="w-full border p-3 rounded-xl mb-3 text-sm focus:border-[#581878] outline-none" />
                                <select required size="4" value={formPembayaran.siswa_id} onChange={e => setFormPembayaran({...formPembayaran, siswa_id: e.target.value})} className="w-full border p-2 rounded-xl bg-white text-sm focus:border-[#F59E0B] outline-none overflow-y-auto">
                                   <option value="" disabled className="text-gray-400 italic">-- Daftar Hasil Filter (Klik Untuk Memilih) --</option>
-                                  {/* Safe check ?.toLowerCase() added here */}
                                   {daftarSiswa.filter(s => s.status === 'aktif' && s.nama_murid?.toLowerCase().includes(searchSiswaBayar.toLowerCase())).map(s => <option key={s.id} value={s.id} className="p-2 border-b cursor-pointer hover:bg-purple-50">{s.nama_murid} - {s.no_hp}</option>)}
                                </select>
                             </div>
@@ -714,7 +753,7 @@ export default function App() {
                        )}
                        <div className="text-center md:text-left">
                          <h2 className="text-3xl font-black tracking-tight">Halo, {currentMentorProfile?.nama_mentor || 'Kakak Pengajar!'} 👋</h2>
-                         <p className="text-purple-200 mt-1 font-medium">{currentMentorProfile?.akses_inventaris ? '✨ Delegasi Inventaris Diberikan oleh Admin' : 'Akses Sistem Pengajar Standar'}</p>
+                         <p className="text-purple-200 mt-1 font-medium">{currentMentorProfile?.akses_inventaris ? '✨ Delegasi Inventaris Aktif - Silakan Kelola Modul' : 'Akses Sistem Pengajar Standar'}</p>
                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-8 relative z-10">
@@ -767,16 +806,14 @@ export default function App() {
                  </div>
               )}
 
-              {/* GURU: MODUL & DELEGASI (Fix Poin 2 & 6) */}
+              {/* GURU: MODUL & DELEGASI */}
               {guruTab === 'modul' && (
                 currentMentorProfile?.akses_inventaris ? (
-                   // ModulManager dengan prop adminView = false (Berarti delegasi guru jalan)
                    <ModulManager adminView={false} />
                 ) : (
-                   // Fallback jika tidak punya delegasi
                    <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-emerald-100">
                      <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl mb-6 text-sm">
-                        ⚠️ Anda tidak memiliki akses untuk menambah/mengedit inventaris. Tampilan di bawah hanya untuk referensi baca. Hubungi Admin jika Anda butuh delegasi akses (Menu Mentor &gt; Edit Hak Akses).
+                        ⚠️ Anda tidak memiliki akses delegasi untuk menambah/mengedit inventaris. Tampilan di bawah hanya untuk referensi baca. Hubungi Admin jika Anda butuh delegasi akses.
                      </div>
                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                        {daftarInventaris.map(b => (
@@ -797,7 +834,7 @@ export default function App() {
                 )
               )}
 
-              {/* GURU: PROFIL (Fix Poin 3) */}
+              {/* GURU: PROFIL */}
               {guruTab === 'profil' && (
                 <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-200">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b pb-4">
@@ -811,7 +848,7 @@ export default function App() {
                   </div>
                   <form onSubmit={handleUpdateProfilGuru} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>
-                        <label className="text-xs font-bold block mb-1">Nama Tampilan (Hubungi Admin Jika Salah)</label>
+                        <label className="text-xs font-bold block mb-1">Nama Tampilan</label>
                         <input type="text" disabled value={currentMentorProfile?.nama_mentor || ''} className="w-full p-3 border rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed" />
                      </div>
                      <div>
@@ -821,7 +858,7 @@ export default function App() {
                      <div className="md:col-span-2">
                         <label className="text-xs font-bold block mb-1 text-[#581878]">Link URL Foto Anda Terkini (Harus Publik)</label>
                         <input type="text" placeholder="https://..." value={currentMentorProfile?.foto_url || ''} onChange={e => setCurrentMentorProfile({...currentMentorProfile, foto_url: e.target.value})} className="w-full p-3 border border-[#F59E0B] rounded-xl focus:ring-2 focus:ring-amber-300 outline-none" />
-                        <p className="text-[10px] text-gray-400 mt-1">Saran: Gunakan layanan hosting gambar seperti Imgur atau drive publik berakhiran .jpg/.png</p>
+                        <p className="text-[10px] text-gray-400 mt-1">Saran: Gunakan layanan hosting gambar publik berakhiran .jpg/.png</p>
                      </div>
                      <div>
                         <label className="text-xs font-bold block mb-1">No. WhatsApp / Kontak Darurat</label>
@@ -841,7 +878,7 @@ export default function App() {
         </div>
       ) : (
         /* ======================================================= */
-        /* 🌍 PUBLIC LANDING PAGE (DIKEMBALIKAN)                   */
+        /* 🌍 PUBLIC LANDING PAGE                                  */
         /* ======================================================= */
         <>
           <section className="bg-gradient-to-b from-[#581878] via-[#6B21A8] to-[#FFFDF0] text-white pt-12 pb-24 px-4 text-center">
@@ -921,7 +958,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* MODAL LOGIN (DIKEMBALIKAN KE LUAR BLOK ADMIN/GURU) */}
+          {/* MODAL LOGIN */}
           {showLoginModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
               <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative overflow-hidden transform transition-all">
@@ -961,7 +998,7 @@ export default function App() {
       {/* FOOTER GLOBAL */}
       <footer className="bg-[#581878] text-white py-10 text-center border-t-4 border-[#F59E0B] mt-auto">
         <div className="max-w-7xl mx-auto px-4">
-           <img src="public/logo.png" alt="Logo Footer" className="h-12 w-12 object-contain bg-white rounded-full p-2 mx-auto mb-4 opacity-90" />
+           <img src="/logo.png" alt="Logo Footer" className="h-12 w-12 object-contain bg-white rounded-full p-2 mx-auto mb-4 opacity-90" />
            <p className="font-black text-xl tracking-wide">Bimbel ErHa (Rumah Hebat)</p>
            <p className="text-purple-300 text-sm mt-2 font-medium max-w-md mx-auto">Sistem Terpadu Manajemen Akademik, Administrasi Pendaftaran, Operasional Logistik, dan Payroll Mentor Internal.</p>
            <p className="text-xs text-purple-400 mt-8">© {new Date().getFullYear()} Bimbel ErHa. All rights reserved.</p>
