@@ -199,8 +199,12 @@ export default function App() {
         total_pertemuan: 12, 
         status_periode: 'berjalan' 
       }));
-      await supabase.from('periode_belajar').insert(periodeInserts);
-      alert('✅ Siswa manual dan periode tanggal berhasil ditambahkan!');
+      const { error: errPeriode } = await supabase.from('periode_belajar').insert(periodeInserts);
+if (errPeriode) {
+    alert('❌ Siswa berhasil disimpan, TAPI pembuatan periode gagal: ' + errPeriode.message);
+} else {
+    alert('✅ Siswa manual dan periode tanggal berhasil ditambahkan!');
+}
       setFormSiswaManual({ 
         nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK',
         bulan_periode: new Date().toISOString().slice(0, 7),
@@ -963,18 +967,91 @@ export default function App() {
               </div>
 
               {guruTab === 'beranda' && (
-                 <div className="bg-gradient-to-r from-purple-800 to-indigo-900 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-                       {currentMentorProfile?.foto_url ? (
-                         <img src={currentMentorProfile.foto_url} alt="Guru" className="w-24 h-24 rounded-full border-4 border-[#F59E0B] object-cover shadow-xl" />
-                       ) : (
-                         <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-4xl border border-white/50 backdrop-blur">👤</div>
-                       )}
-                       <div className="text-center md:text-left">
-                         <h2 className="text-3xl font-black tracking-tight">Halo, {currentMentorProfile?.nama_mentor || 'Kakak Pengajar!'} 👋</h2>
-                         <p className="text-purple-200 mt-1 font-medium">{currentMentorProfile?.akses_inventaris ? '✨ Delegasi Inventaris Aktif - Silakan Kelola Modul' : 'Akses Sistem Pengajar Standar'}</p>
+                 <div className="space-y-6">
+                    {/* Header Profil */}
+                    <div className="bg-gradient-to-r from-purple-800 to-indigo-900 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
+                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                          {currentMentorProfile?.foto_url ? (
+                            <img src={currentMentorProfile.foto_url} alt="Guru" className="w-24 h-24 rounded-full border-4 border-[#F59E0B] object-cover shadow-xl" />
+                          ) : (
+                            <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-4xl border border-white/50 backdrop-blur">👤</div>
+                          )}
+                          <div className="text-center md:text-left">
+                            <h2 className="text-3xl font-black tracking-tight">Halo, {currentMentorProfile?.nama_mentor || 'Kakak Pengajar!'} 👋</h2>
+                            <p className="text-purple-200 mt-1 font-medium">{currentMentorProfile?.akses_inventaris ? '✨ Delegasi Inventaris Aktif - Silakan Kelola Modul' : 'Akses Sistem Pengajar Standar'}</p>
+                            <p className="text-amber-300 text-sm font-bold mt-2 border border-amber-300/30 inline-block px-3 py-1 rounded-full bg-black/20">
+                              Tarif Dasar: Rp {(currentMentorProfile?.honor_per_jam || 0).toLocaleString('id-ID')} / Jam
+                            </p>
+                          </div>
                        </div>
                     </div>
+
+                    {/* Ringkasan Kinerja & Estimasi Gaji Bulan Ini */}
+                    {(() => {
+                       // Ambil bulan saat ini dengan format YYYY-MM
+                       const bulanIni = new Date().toISOString().slice(0, 7); 
+                       
+                       // Filter presensi khusus milik guru ini & khusus bulan ini
+                       const presensiBulanIni = daftarPresensiMentor.filter(pm => 
+                          pm.mentor_id === currentMentorProfile?.id && 
+                          pm.tanggal?.startsWith(bulanIni)
+                       );
+                       
+                       // Hitung total jam & estimasi honor
+                       const totalJamBulanIni = presensiBulanIni.reduce((acc, curr) => acc + (Number(curr.total_jam) || 0), 0);
+                       const estimasiGaji = totalJamBulanIni * (currentMentorProfile?.honor_per_jam || 0);
+
+                       return (
+                         <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100">
+                           <h3 className="text-lg font-bold text-[#581878] mb-4">Kinerja Anda Bulan Ini ({bulanIni})</h3>
+                           
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                              <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">Total Jam Mengajar</p>
+                                  <p className="text-3xl font-black text-blue-900 mt-1">{totalJamBulanIni} <span className="text-lg">Jam</span></p>
+                                </div>
+                                <div className="text-4xl opacity-80">⏱️</div>
+                              </div>
+                              <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-100 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Estimasi Honor Sementara</p>
+                                  <p className="text-3xl font-black text-emerald-900 mt-1">Rp {estimasiGaji.toLocaleString('id-ID')}</p>
+                                </div>
+                                <div className="text-4xl opacity-80">💰</div>
+                              </div>
+                           </div>
+
+                           {/* Tabel Riwayat Kehadiran (Presensi) Mentor */}
+                           <h4 className="text-sm font-bold text-gray-700 mb-3 border-t pt-6">Log Kehadiran Guru (Terakhir)</h4>
+                           <div className="overflow-x-auto">
+                              <table className="w-full text-left text-sm whitespace-nowrap">
+                                <thead className="bg-gray-50 text-gray-600">
+                                  <tr>
+                                    <th className="p-3">Tanggal Kerja</th>
+                                    <th className="p-3 text-center">Durasi (Jam)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {daftarPresensiMentor
+                                    .filter(pm => pm.mentor_id === currentMentorProfile?.id)
+                                    .slice(0, 15) // Menampilkan 15 histori terakhir
+                                    .map(pm => (
+                                      <tr key={pm.id} className="border-b hover:bg-gray-50">
+                                        <td className="p-3 font-medium text-gray-800">{pm.tanggal}</td>
+                                        <td className="p-3 font-black text-emerald-700 text-center bg-emerald-50/50">{pm.total_jam} Jam</td>
+                                      </tr>
+                                    ))
+                                  }
+                                  {daftarPresensiMentor.filter(pm => pm.mentor_id === currentMentorProfile?.id).length === 0 && (
+                                     <tr><td colSpan="2" className="p-6 text-center text-gray-400 italic">Belum ada jam kerja yang diinputkan untuk Anda.</td></tr>
+                                  )}
+                                </tbody>
+                              </table>
+                           </div>
+                         </div>
+                       )
+                    })()}
                  </div>
               )}
 
