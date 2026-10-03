@@ -3,8 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
-
+const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -41,7 +40,7 @@ export default function App() {
   const [showEditPasswordModal, setShowEditPasswordModal] = useState(false);
   const [expandedSiswaId, setExpandedSiswaId] = useState(null);
   const [filterBulanPresensi, setFilterBulanPresensi] = useState('');
-  const [filterMentorPresensi, setFilterMentorPresensi] = useState(''); // Filter Presensi Berdasarkan Guru
+  const [filterMentorPresensi, setFilterMentorPresensi] = useState('');
   const [searchSiswaBayar, setSearchSiswaBayar] = useState('');
 
   // Form States
@@ -50,10 +49,29 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   const [newPasswordGuru, setNewPasswordGuru] = useState('');
 
-  const [formDaftar, setFormDaftar] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK' });
+  // Pendaftaran dengan Tanggal Mulai, Selesai, dan Periode Bulan
+  const [formDaftar, setFormDaftar] = useState({ 
+    nama_murid: '', 
+    nama_orang_tua: '', 
+    no_hp: '', 
+    alamat: '', 
+    jenjang_sekolah: 'TK',
+    bulan_periode: new Date().toISOString().slice(0, 7),
+    tanggal_mulai: new Date().toISOString().split('T')[0],
+    tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+  });
   const [selectedPaket, setSelectedPaket] = useState([]);
 
-  const [formSiswaManual, setFormSiswaManual] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK' });
+  const [formSiswaManual, setFormSiswaManual] = useState({ 
+    nama_murid: '', 
+    nama_orang_tua: '', 
+    no_hp: '', 
+    alamat: '', 
+    jenjang_sekolah: 'TK',
+    bulan_periode: new Date().toISOString().slice(0, 7),
+    tanggal_mulai: new Date().toISOString().split('T')[0],
+    tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+  });
   const [selectedPaketManual, setSelectedPaketManual] = useState([]);
 
   const [newMentor, setNewMentor] = useState({ nama_mentor: '', email: '', password: '', no_hp: '', alamat: '', honor_per_jam: 25000, status: 'aktif' });
@@ -165,38 +183,48 @@ export default function App() {
   const handleTambahSiswaManual = async (e) => {
     e.preventDefault();
     if (selectedPaketManual.length === 0) return alert('Pilih minimal satu paket!');
-    const { data: siswaData } = await supabase.from('siswa').insert([{ ...formSiswaManual, status: 'aktif' }]).select();
+    const { data: siswaData } = await supabase.from('siswa').insert([{ 
+      nama_murid: formSiswaManual.nama_murid, 
+      nama_orang_tua: formSiswaManual.nama_orang_tua, 
+      no_hp: formSiswaManual.no_hp, 
+      alamat: formSiswaManual.alamat, 
+      jenjang_sekolah: formSiswaManual.jenjang_sekolah,
+      status: 'aktif' 
+    }]).select();
+
     if (siswaData && siswaData[0]) {
       const siswaId = siswaData[0].id;
-      const currentBulan = new Date().toISOString().slice(0, 7);
-      const periodeInserts = selectedPaketManual.map(pId => ({ siswa_id: siswaId, paket_id: pId, bulan_periode: currentBulan, total_pertemuan: 12, status_periode: 'berjalan' }));
+      const periodeInserts = selectedPaketManual.map(pId => ({ 
+        siswa_id: siswaId, 
+        paket_id: pId, 
+        bulan_periode: formSiswaManual.bulan_periode, 
+        tanggal_mulai: formSiswaManual.tanggal_mulai,
+        tanggal_selesai: formSiswaManual.tanggal_selesai,
+        total_pertemuan: 12, 
+        status_periode: 'berjalan' 
+      }));
       await supabase.from('periode_belajar').insert(periodeInserts);
-      alert('Siswa dan periode berhasil ditambahkan!');
-      setFormSiswaManual({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK' });
+      alert('✅ Siswa manual dan periode tanggal berhasil ditambahkan!');
+      setFormSiswaManual({ 
+        nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK',
+        bulan_periode: new Date().toISOString().slice(0, 7),
+        tanggal_mulai: new Date().toISOString().split('T')[0],
+        tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+      });
       setSelectedPaketManual([]);
       fetchAllData();
     }
   };
 
-  // PERBAIKAN: Fungsi Hapus Siswa secara Aman (Cascade Manual)
   const handleHapusSiswa = async (siswaId, namaSiswa) => {
     if (!window.confirm(`Hapus data siswa "${namaSiswa}" beserta seluruh riwayat periode, presensi, dan pembayarannya?`)) return;
     try {
-      // 1. Ambil semua periode belajar milik siswa ini
       const periodeIds = daftarPeriode.filter(p => p.siswa_id === siswaId).map(p => p.id);
-      
-      // 2. Hapus presensi siswa yang terkait dengan periode tersebut
       if (periodeIds.length > 0) {
         await supabase.from('presensi_siswa').delete().in('periode_id', periodeIds);
       }
-      
-      // 3. Hapus data pembayaran siswa
       await supabase.from('pembayaran_siswa').delete().eq('siswa_id', siswaId);
-
-      // 4. Hapus periode belajar
       await supabase.from('periode_belajar').delete().eq('siswa_id', siswaId);
-
-      // 5. Hapus data utama siswa
       const { error } = await supabase.from('siswa').delete().eq('id', siswaId);
       if (error) throw error;
 
@@ -212,7 +240,19 @@ export default function App() {
     try {
       await supabase.from('periode_belajar').update({ status_periode: 'selesai' }).eq('id', periodeLama.id);
       const nextMonth = new Date().toISOString().slice(0, 7);
-      const { data: newP, error } = await supabase.from('periode_belajar').insert([{ siswa_id: periodeLama.siswa_id, paket_id: periodeLama.paket_id, bulan_periode: nextMonth, total_pertemuan: 12, status_periode: 'berjalan' }]).select();
+      const tglMulaiBaru = new Date().toISOString().split('T')[0];
+      const tglSelesaiBaru = new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0];
+
+      const { data: newP, error } = await supabase.from('periode_belajar').insert([{ 
+        siswa_id: periodeLama.siswa_id, 
+        paket_id: periodeLama.paket_id, 
+        bulan_periode: nextMonth, 
+        tanggal_mulai: tglMulaiBaru,
+        tanggal_selesai: tglSelesaiBaru,
+        total_pertemuan: 12, 
+        status_periode: 'berjalan' 
+      }]).select();
+
       if (error) throw error;
       if (newP && newP[0]) {
         await supabase.from('pembayaran_siswa').insert([{ siswa_id: periodeLama.siswa_id, periode_id: newP[0].id, status_pembayaran: 'Belum Lunas', item_bayar: 'Paket Belajar Bulanan' }]);
@@ -340,7 +380,14 @@ export default function App() {
     if (!currentMentorProfile || !currentMentorProfile.id) return alert('Sesi Mentor Tidak Valid! Silakan login kembali.');
     if (!newPresensiSiswa.periode_id) return alert('Pilih nama murid!');
     
-    await supabase.from('presensi_siswa').insert([{ periode_id: newPresensiSiswa.periode_id, mentor_id: currentMentorProfile.id, pertemuan_ke: newPresensiSiswa.pertemuan_ke, tanggal_pertemuan: newPresensiSiswa.tanggal_pertemuan, is_hadir: newPresensiSiswa.status_kehadiran === 'Hadir', jurnal_materi: `[${newPresensiSiswa.status_kehadiran}] ${newPresensiSiswa.jurnal_materi}` }]);
+    await supabase.from('presensi_siswa').insert([{ 
+      periode_id: newPresensiSiswa.periode_id, 
+      mentor_id: currentMentorProfile.id, 
+      pertemuan_ke: newPresensiSiswa.pertemuan_ke, 
+      tanggal_pertemuan: newPresensiSiswa.tanggal_pertemuan, 
+      is_hadir: newPresensiSiswa.status_kehadiran === 'Hadir', 
+      jurnal_materi: `[${newPresensiSiswa.status_kehadiran}] ${newPresensiSiswa.jurnal_materi}` 
+    }]);
     alert('✅ Presensi berhasil dicatat!');
     setNewPresensiSiswa(prev => ({ ...prev, jurnal_materi: '' }));
     fetchAllData();
@@ -351,19 +398,40 @@ export default function App() {
     if (selectedPaket.length === 0) return alert('Pilih minimal satu paket!');
     setLoading(true);
     try {
-      const { data: siswaData } = await supabase.from('siswa').insert([{ ...formDaftar, status: 'pending' }]).select();
+      const { data: siswaData } = await supabase.from('siswa').insert([{ 
+        nama_murid: formDaftar.nama_murid,
+        nama_orang_tua: formDaftar.nama_orang_tua,
+        no_hp: formDaftar.no_hp,
+        alamat: formDaftar.alamat,
+        jenjang_sekolah: formDaftar.jenjang_sekolah,
+        status: 'pending' 
+      }]).select();
+
       if (siswaData && siswaData[0]) {
-        const currentBulan = new Date().toISOString().slice(0, 7);
-        const periodeInserts = selectedPaket.map(pId => ({ siswa_id: siswaData[0].id, paket_id: pId, bulan_periode: currentBulan, total_pertemuan: 12, status_periode: 'berjalan' }));
+        const periodeInserts = selectedPaket.map(pId => ({ 
+          siswa_id: siswaData[0].id, 
+          paket_id: pId, 
+          bulan_periode: formDaftar.bulan_periode, 
+          tanggal_mulai: formDaftar.tanggal_mulai,
+          tanggal_selesai: formDaftar.tanggal_selesai,
+          total_pertemuan: 12, 
+          status_periode: 'berjalan' 
+        }));
         await supabase.from('periode_belajar').insert(periodeInserts);
         fetchAllData();
       }
     } finally {
       setLoading(false);
       alert('Pendaftaran Berhasil! Mengarahkan ke WhatsApp Admin...');
-      const waText = `Halo Admin Bimbel ErHa,\nSaya ${formDaftar.nama_orang_tua} mendaftarkan ${formDaftar.nama_murid}.`;
+      const waText = `Halo Admin Bimbel ErHa,\nSaya ${formDaftar.nama_orang_tua} mendaftarkan ${formDaftar.nama_murid} untuk periode ${formDaftar.bulan_periode} (${formDaftar.tanggal_mulai} s.d. ${formDaftar.tanggal_selesai}).`;
       window.open(`https://wa.me/6281915058297?text=${encodeURIComponent(waText)}`, '_blank');
-      setFormDaftar({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK' });
+      setFormDaftar({ 
+        nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK',
+        bulan_periode: new Date().toISOString().slice(0, 7),
+        tanggal_mulai: new Date().toISOString().split('T')[0],
+        tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+      });
+      setSelectedPaket([]);
     }
   };
 
@@ -413,7 +481,7 @@ export default function App() {
             <div>
               <div className="flex overflow-x-auto border-b-2 border-purple-200 mb-6 space-x-2 pb-1">
                 <button onClick={() => setAdminTab('siswa')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'siswa' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📋 SISWA</button>
-                <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍‍‍🏫 MENTOR</button>
+                <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍🏫 MENTOR</button>
                 <button onClick={() => setAdminTab('pembayaran')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'pembayaran' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💵 PEMBAYARAN</button>
                 <button onClick={() => setAdminTab('modul')} className={`py-2.5 px-5 font-extrabold rounded-t-xl transition text-sm whitespace-nowrap ${adminTab === 'modul' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📚 MODUL & INVENTARIS</button>
               </div>
@@ -447,13 +515,36 @@ export default function App() {
 
                   {siswaSubTab === 'tambah_manual' && (
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100">
-                      <h3 className="text-lg font-bold text-[#581878] mb-4">Form Tambah Siswa (Offline)</h3>
-                      <form onSubmit={handleTambahSiswaManual} className="grid grid-cols-2 gap-4">
+                      <h3 className="text-lg font-bold text-[#581878] mb-4">Form Tambah Siswa (Offline dengan Periode & Tanggal)</h3>
+                      <form onSubmit={handleTambahSiswaManual} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" placeholder="Nama Murid" required value={formSiswaManual.nama_murid} onChange={e => setFormSiswaManual({...formSiswaManual, nama_murid: e.target.value})} className="border p-3 rounded-xl" />
                         <input type="text" placeholder="Nama Wali" required value={formSiswaManual.nama_orang_tua} onChange={e => setFormSiswaManual({...formSiswaManual, nama_orang_tua: e.target.value})} className="border p-3 rounded-xl" />
                         <input type="text" placeholder="No WhatsApp Aktif" value={formSiswaManual.no_hp} onChange={e => setFormSiswaManual({...formSiswaManual, no_hp: e.target.value})} className="border p-3 rounded-xl" />
-                        <div className="border p-3 rounded-xl bg-gray-50">
-                          <p className="text-xs font-bold mb-2 text-[#581878]">Pilih Paket (Memicu Generate Periode 1-12):</p>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                           <div>
+                              <label className="text-[10px] font-bold text-gray-500 block mb-1">Periode Bulan:</label>
+                              <input type="month" required value={formSiswaManual.bulan_periode} onChange={e => setFormSiswaManual({...formSiswaManual, bulan_periode: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                           </div>
+                           <div>
+                              <label className="text-[10px] font-bold text-gray-500 block mb-1">Jenjang:</label>
+                              <select value={formSiswaManual.jenjang_sekolah} onChange={e => setFormSiswaManual({...formSiswaManual, jenjang_sekolah: e.target.value})} className="border p-3 rounded-xl w-full text-sm bg-white">
+                                 <option value="TK">TK</option><option value="SD">SD</option><option value="SMP">SMP</option>
+                              </select>
+                           </div>
+                        </div>
+
+                        <div>
+                           <label className="text-[10px] font-bold text-gray-500 block mb-1">Tanggal Mulai Belajar:</label>
+                           <input type="date" required value={formSiswaManual.tanggal_mulai} onChange={e => setFormSiswaManual({...formSiswaManual, tanggal_mulai: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        </div>
+                        <div>
+                           <label className="text-[10px] font-bold text-gray-500 block mb-1">Tanggal Selesai (Target 12 Sesi):</label>
+                           <input type="date" required value={formSiswaManual.tanggal_selesai} onChange={e => setFormSiswaManual({...formSiswaManual, tanggal_selesai: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        </div>
+
+                        <div className="border p-3 rounded-xl bg-gray-50 col-span-1 md:col-span-2">
+                          <p className="text-xs font-bold mb-2 text-[#581878]">Pilih Paket Belajar:</p>
                           <div className="grid grid-cols-2 gap-2">
                             {paketList.map(p => (
                               <label key={p.id} className="text-sm cursor-pointer"><input type="checkbox" className="mr-1" onChange={(e) => {
@@ -463,7 +554,7 @@ export default function App() {
                             ))}
                           </div>
                         </div>
-                        <button type="submit" className="col-span-2 bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Simpan Siswa Baru</button>
+                        <button type="submit" className="col-span-1 md:col-span-2 bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Simpan Siswa & Atur Periode</button>
                       </form>
                     </div>
                   )}
@@ -486,11 +577,15 @@ export default function App() {
                                   <td className="p-3">
                                     <strong className="text-[15px]">{s.nama_murid}</strong>
                                     {butuhRollover && <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow animate-pulse">⚠️ 12/12 - Siap Rollover</span>}
+                                    {periodeAktif && (
+                                      <span className="block text-[11px] text-gray-500 mt-0.5">
+                                        📅 Periode: {periodeAktif.tanggal_mulai || '-'} s.d {periodeAktif.tanggal_selesai || '-'}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="p-3">{s.nama_orang_tua} <br/><span className="text-gray-500 text-xs block">{s.no_hp}</span></td>
                                   <td className="p-3 text-center space-x-1 md:space-x-2">
                                     <button onClick={() => setExpandedSiswaId(isExpanded ? null : s.id)} className={`px-3 py-1.5 rounded text-xs font-bold transition shadow ${isExpanded ? 'bg-[#581878] text-white' : 'bg-blue-100 text-blue-700'}`}>{isExpanded ? 'Tutup Detail' : 'Detail Presensi'}</button>
-                                    {/* PERBAIKAN: Tombol Hapus Terhubung ke Fungsi */}
                                     <button onClick={() => handleHapusSiswa(s.id, s.nama_murid)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded text-xs font-bold transition">Hapus</button>
                                   </td>
                                 </tr>
@@ -544,14 +639,12 @@ export default function App() {
                       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                         <h3 className="text-lg font-bold text-[#581878]">Rekap Presensi Siswa per Guru Aktif</h3>
                         <div className="flex flex-wrap items-center gap-3">
-                          {/* Filter Guru */}
                           <div>
                             <select value={filterMentorPresensi} onChange={e => setFilterMentorPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm outline-none bg-purple-50 text-purple-950 font-bold">
                               <option value="">-- Semua Guru / Mentor --</option>
                               {daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}
                             </select>
                           </div>
-                          {/* Filter Bulan */}
                           <div>
                             <input type="month" value={filterBulanPresensi} onChange={e => setFilterBulanPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm outline-none" />
                           </div>
@@ -839,14 +932,32 @@ export default function App() {
                         <button type="submit" className="md:col-span-3 bg-[#581878] hover:bg-purple-900 text-white font-extrabold py-3 rounded-xl shadow transition">Simpan Presensi Kelas Ke Database</button>
                     </form>
 
-                    <h3 className="text-md font-bold text-gray-700 mb-3 border-t pt-4">Log Mengajar Anda (10 Terakhir)</h3>
+                    {/* PERBAIKAN: Log Mengajar Guru Lengkap (Tanggal, Nama, Sesi, Jurnal) */}
+                    <h3 className="text-md font-bold text-gray-700 mb-3 border-t pt-4">Log Riwayat Mengajar Anda</h3>
                     <div className="overflow-x-auto">
                        <table className="w-full text-left text-sm whitespace-nowrap">
-                          <thead className="bg-gray-100"><tr><th className="p-3">Tanggal</th><th className="p-3">Nama Siswa</th><th className="p-3">Sesi</th><th className="p-3">Jurnal Ditulis</th></tr></thead>
+                          <thead className="bg-purple-50 text-[#581878]">
+                            <tr>
+                              <th className="p-3">Tanggal</th>
+                              <th className="p-3">Nama Siswa</th>
+                              <th className="p-3 text-center">Sesi</th>
+                              <th className="p-3">Jurnal Materi</th>
+                            </tr>
+                          </thead>
                           <tbody>
-                             {daftarPresensiSiswa.filter(ps => ps.mentor_id === currentMentorProfile?.id).slice(0, 10).map(ps => (
-                                <tr key={ps.id} className="border-b"><td className="p-3">{ps.tanggal_pertemuan}</td><td className="p-3 font-bold text-[#581878]">{ps.periode_belajar?.siswa?.nama_murid}</td><td className="p-3 font-black bg-gray-50 text-center">Ke-{ps.pertemuan_ke}</td><td className="p-3 text-gray-600 truncate max-w-[200px]">{ps.jurnal_materi}</td></tr>
+                             {daftarPresensiSiswa
+                               .filter(ps => ps.mentor_id === currentMentorProfile?.id)
+                               .map(ps => (
+                                <tr key={ps.id} className="border-b hover:bg-gray-50">
+                                  <td className="p-3 font-semibold">{ps.tanggal_pertemuan}</td>
+                                  <td className="p-3 font-bold text-[#581878]">{ps.periode_belajar?.siswa?.nama_murid || 'Siswa'}</td>
+                                  <td className="p-3 font-black bg-gray-50 text-center">Ke-{ps.pertemuan_ke}</td>
+                                  <td className="p-3 text-gray-600 max-w-[250px] whitespace-normal">{ps.jurnal_materi}</td>
+                                </tr>
                              ))}
+                             {daftarPresensiSiswa.filter(ps => ps.mentor_id === currentMentorProfile?.id).length === 0 && (
+                               <tr><td colSpan="4" className="p-6 text-center text-gray-400 italic">Belum ada log mengajar yang tercatat.</td></tr>
+                             )}
                           </tbody>
                        </table>
                     </div>
@@ -905,7 +1016,6 @@ export default function App() {
                      <div className="md:col-span-2">
                         <label className="text-xs font-bold block mb-1 text-[#581878]">Link URL Foto Anda Terkini (Harus Publik)</label>
                         <input type="text" placeholder="https://..." value={currentMentorProfile?.foto_url || ''} onChange={e => setCurrentMentorProfile({...currentMentorProfile, foto_url: e.target.value})} className="w-full p-3 border border-[#F59E0B] rounded-xl focus:ring-2 focus:ring-amber-300 outline-none" />
-                        <p className="text-[10px] text-gray-400 mt-1">Saran: Gunakan layanan hosting gambar publik berakhiran .jpg/.png</p>
                      </div>
                      <div>
                         <label className="text-xs font-bold block mb-1">No. WhatsApp / Kontak Darurat</label>
@@ -925,7 +1035,7 @@ export default function App() {
         </div>
       ) : (
         /* ======================================================= */
-        /* 🌍 PUBLIC LANDING PAGE                                  */
+        /* 🌍 PUBLIC LANDING PAGE (DENGAN PERIODE & TANGGAL)       */
         /* ======================================================= */
         <>
           <section className="bg-gradient-to-b from-[#581878] via-[#6B21A8] to-[#FFFDF0] text-white pt-12 pb-24 px-4 text-center">
@@ -974,29 +1084,45 @@ export default function App() {
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#F59E0B] to-[#581878]"></div>
               <div className="text-center mb-10">
                 <h3 className="text-3xl font-black text-[#581878] mb-2">Pendaftaran Siswa Baru</h3>
-                <p className="text-gray-500 text-sm font-medium">Lengkapi formulir di bawah ini. Anda akan langsung dihubungkan ke Admin via WhatsApp untuk konfirmasi persetujuan.</p>
+                <p className="text-gray-500 text-sm font-medium">Lengkapi formulir di bawah ini beserta jadwal periode belajar. Anda akan langsung dihubungkan ke Admin via WhatsApp.</p>
               </div>
               <form onSubmit={handleDaftarSubmit} className="space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">Nama Lengkap Murid</label>
-                  <input type="text" required value={formDaftar.nama_murid} onChange={(e) => setFormDaftar({ ...formDaftar, nama_murid: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white" placeholder="Contoh: Budi Pratama Anak Sholeh" />
+                  <input type="text" required value={formDaftar.nama_murid} onChange={(e) => setFormDaftar({ ...formDaftar, nama_murid: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] bg-gray-50 focus:bg-white" placeholder="Contoh: Budi Pratama" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Nama Orang Tua / Wali Pribadi</label>
-                    <input type="text" required value={formDaftar.nama_orang_tua} onChange={(e) => setFormDaftar({ ...formDaftar, nama_orang_tua: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white" placeholder="Bpk. / Ibu Wali" />
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Nama Orang Tua / Wali</label>
+                    <input type="text" required value={formDaftar.nama_orang_tua} onChange={(e) => setFormDaftar({ ...formDaftar, nama_orang_tua: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] bg-gray-50 focus:bg-white" placeholder="Bpk. / Ibu Wali" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">No. WhatsApp Aktif</label>
-                    <input type="tel" required value={formDaftar.no_hp} onChange={(e) => setFormDaftar({ ...formDaftar, no_hp: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white" placeholder="081234567890" />
+                    <input type="tel" required value={formDaftar.no_hp} onChange={(e) => setFormDaftar({ ...formDaftar, no_hp: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] bg-gray-50 focus:bg-white" placeholder="081234567890" />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                   <div>
+                      <label className="block text-xs font-bold text-[#581878] mb-1">Periode Bulan</label>
+                      <input type="month" required value={formDaftar.bulan_periode} onChange={(e) => setFormDaftar({ ...formDaftar, bulan_periode: e.target.value })} className="w-full px-3 py-2.5 rounded-lg border bg-white text-sm" />
+                   </div>
+                   <div>
+                      <label className="block text-xs font-bold text-[#581878] mb-1">Tanggal Mulai</label>
+                      <input type="date" required value={formDaftar.tanggal_mulai} onChange={(e) => setFormDaftar({ ...formDaftar, tanggal_mulai: e.target.value })} className="w-full px-3 py-2.5 rounded-lg border bg-white text-sm" />
+                   </div>
+                   <div>
+                      <label className="block text-xs font-bold text-[#581878] mb-1">Tanggal Selesai</label>
+                      <input type="date" required value={formDaftar.tanggal_selesai} onChange={(e) => setFormDaftar({ ...formDaftar, tanggal_selesai: e.target.value })} className="w-full px-3 py-2.5 rounded-lg border bg-white text-sm" />
+                   </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">Alamat Domisili Sekarang</label>
-                  <textarea required value={formDaftar.alamat} onChange={(e) => setFormDaftar({ ...formDaftar, alamat: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white" placeholder="Tuliskan jalan, desa, kecamatan lengkap..." rows="2" />
+                  <textarea required value={formDaftar.alamat} onChange={(e) => setFormDaftar({ ...formDaftar, alamat: e.target.value })} className="w-full px-5 py-4 rounded-xl border border-gray-200 outline-none focus:border-[#581878] bg-gray-50 focus:bg-white" placeholder="Tuliskan alamat lengkap..." rows="2" />
                 </div>
                 <div className="pt-4">
-                   <button type="submit" disabled={loading} className="w-full py-5 bg-[#581878] hover:bg-[#6B21A8] text-white font-black text-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 transform flex items-center justify-center gap-2">
+                   <button type="submit" disabled={loading} className="w-full py-5 bg-[#581878] hover:bg-[#6B21A8] text-white font-black text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2">
                      {loading ? 'Memproses Pendaftaran Sistem...' : 'Kirim Pendaftaran via WhatsApp 🚀'}
                    </button>
                    <p className="text-center text-xs text-gray-400 mt-4">*Pastikan Anda telah memilih program/paket di atas sebelum menekan tombol kirim.</p>
@@ -1025,11 +1151,11 @@ export default function App() {
                    <form onSubmit={handleLogin} className="space-y-4">
                      <div>
                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1 ml-1">Email Pengguna</label>
-                       <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-100 outline-none focus:border-[#581878] transition-colors font-medium bg-gray-50 focus:bg-white text-sm" placeholder="akun@bimbelerha.com" />
+                       <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-100 outline-none focus:border-[#581878] font-medium bg-gray-50 text-sm" placeholder="akun@bimbelerha.com" />
                      </div>
                      <div>
                        <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1 ml-1">Kata Sandi</label>
-                       <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-100 outline-none focus:border-[#581878] transition-colors font-medium bg-gray-50 focus:bg-white text-sm" placeholder="••••••••" />
+                       <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-100 outline-none focus:border-[#581878] font-medium bg-gray-50 text-sm" placeholder="••••••••" />
                      </div>
                      <button type="submit" disabled={loading} className="w-full py-4 bg-[#581878] hover:bg-[#6B21A8] text-[#F59E0B] font-black rounded-xl shadow-lg transition-all text-lg mt-4 border border-purple-800 tracking-wide">
                        {loading ? 'MEMERIKSA...' : 'M A S U K'}
@@ -1047,14 +1173,14 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4">
            <img src="/logo.png" alt="Logo Footer" className="h-12 w-12 object-contain bg-white rounded-full p-2 mx-auto mb-4 opacity-90" />
            <p className="font-black text-xl tracking-wide">Bimbel ErHa (Rumah Hebat)</p>
-           <p className="text-purple-300 text-sm mt-2 font-medium max-w-md mx-auto">Sistem Terpadu Manajemen Akademik, Administrasi Pendaftaran, Operasional Logistik, dan Payroll Mentor Internal.</p>
+           <p className="text-purple-300 text-sm mt-2 font-medium max-w-md mx-auto">Sistem Terpadu Manajemen Akademik, Pendaftaran, Operasional Logistik, dan Payroll Mentor Internal.</p>
            <p className="text-xs text-purple-400 mt-8">© {new Date().getFullYear()} Bimbel ErHa. All rights reserved.</p>
         </div>
       </footer>
     </div>
   );
 
-  // --- KOMPONEN LOKAL UNTUK MANAJEMEN MODUL (Poin 2 & 6 & 7) ---
+  // --- KOMPONEN LOKAL UNTUK MANAJEMEN MODUL ---
   function ModulManager({ adminView }) {
     return (
       <div className="space-y-6">
