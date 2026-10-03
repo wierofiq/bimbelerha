@@ -130,7 +130,7 @@ export default function App() {
       supabase.from('siswa').select('*').order('created_at', { ascending: false }),
       supabase.from('mentor').select('*').order('created_at', { ascending: false }),
       supabase.from('periode_belajar').select('*, siswa(nama_murid, status), paket_belajar(nama_paket)').order('created_at', { ascending: false }),
-      supabase.from('presensi_siswa').select('*, mentor(nama_mentor, id), periode_belajar(siswa(nama_murid, siswa_id, id), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false }),
+      supabase.from('presensi_siswa').select('*, mentor(nama_mentor, id), periode_belajar(siswa(id, nama_murid, status), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false }),
       supabase.from('pembayaran_siswa').select('*, siswa(nama_murid)').order('tanggal_pembayaran', { ascending: false }),
       supabase.from('presensi_mentor').select('*, mentor(nama_mentor)').order('tanggal', { ascending: false }),
       supabase.from('penggajian_mentor').select('*, mentor(nama_mentor, honor_per_jam)').order('created_at', { ascending: false }),
