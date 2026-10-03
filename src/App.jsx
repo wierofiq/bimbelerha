@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -226,7 +226,7 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-[#581878] shadow-lg border-b-4 border-[#F59E0B]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <img src="public/logo.png" alt="Logo" className="h-10 w-10 bg-white rounded-full p-1" />
+            <img src="/logo.png" alt="Logo" className="h-10 w-10 bg-white rounded-full p-1" />
             <div>
               <h1 className="text-white font-extrabold text-lg leading-none">Bimbel ErHa</h1>
               <p className="text-[#F59E0B] font-bold text-xs">Rumah Hebat</p>
