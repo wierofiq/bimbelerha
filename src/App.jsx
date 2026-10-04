@@ -4,8 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // ==========================================
 // INISIALISASI SUPABASE CLIENT
 // ==========================================
-const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -71,8 +70,10 @@ export default function App() {
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [showTambahSiswaModal, setShowTambahSiswaModal] = useState(false);
   const [showTambahMentorModal, setShowTambahMentorModal] = useState(false);
+  const [showEditMentorModal, setShowEditMentorModal] = useState(false);
   const [showTambahBarangModal, setShowTambahBarangModal] = useState(false);
   const [showTambahKontenModal, setShowTambahKontenModal] = useState(false);
+  const [showEditSectionModal, setShowEditSectionModal] = useState(false);
 
   // Form States
   const [formDaftar, setFormDaftar] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'SD' });
@@ -88,6 +89,15 @@ export default function App() {
   const [formTambahMentor, setFormTambahMentor] = useState({
     nama_mentor: '', email: '', no_hp: '', alamat: '', password: '', honor_per_jam: 35000,
     akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false
+  });
+
+  const [editMentorData, setEditMentorData] = useState({
+    id: '', nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 35000,
+    akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false
+  });
+
+  const [editSectionData, setEditSectionData] = useState({
+    id: '', section_key: '', nama_section: '', urutan: 0, is_aktif: true
   });
 
   const [formBarangBaru, setFormBarangBaru] = useState({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
@@ -376,17 +386,14 @@ export default function App() {
     if (!window.confirm(`Lanjutkan (Rollover) periode belajar untuk ${siswa.nama_murid}?`)) return;
     setLoading(true);
     try {
-      // Set periode lama menjadi selesai
       await supabase.from('periode_belajar').update({ status_periode: 'selesai', status_rollover: 'selesai' }).eq('id', pLama.id);
 
-      // Hitung tanggal baru (+1 bulan)
       const tglMulaiBaru = pLama.tanggal_selesai ? pLama.tanggal_selesai : new Date().toISOString().split('T')[0];
       const dSelesai = new Date(tglMulaiBaru);
       dSelesai.setMonth(dSelesai.getMonth() + 1);
       const tglSelesaiBaru = dSelesai.toISOString().split('T')[0];
       const bulanBaru = tglMulaiBaru.slice(0, 7);
 
-      // Buat periode baru
       await supabase.from('periode_belajar').insert([{
         siswa_id: siswa.id,
         paket_id: pLama.paket_id,
@@ -407,13 +414,12 @@ export default function App() {
   };
 
   // ==========================================
-  // 5. HANDLERS - MENTOR & PRESENSI ADMIN
+  // 5. HANDLERS - MENTOR & DELEGASI
   // ==========================================
   const handleTambahMentorSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // 1. Auth SignUp
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: formTambahMentor.email,
         password: formTambahMentor.password
@@ -421,7 +427,6 @@ export default function App() {
 
       if (authErr) throw authErr;
 
-      // 2. Insert ke public.mentor
       const { error: mErr } = await supabase.from('mentor').insert([{
         nama_mentor: formTambahMentor.nama_mentor,
         email: formTambahMentor.email,
@@ -451,6 +456,52 @@ export default function App() {
     }
   };
 
+  const openEditMentorModal = (mentor) => {
+    setEditMentorData({
+      id: mentor.id,
+      nama_mentor: mentor.nama_mentor || '',
+      no_hp: mentor.no_hp || '',
+      alamat: mentor.alamat || '',
+      honor_per_jam: mentor.honor_per_jam || 35000,
+      akses_inventaris: mentor.akses_inventaris || false,
+      delegasi_inventaris: mentor.delegasi_inventaris || false,
+      akses_perizinan: mentor.akses_perizinan || false,
+      delegasi_perizinan: mentor.delegasi_perizinan || false,
+      akses_konten: mentor.akses_konten || false,
+      delegasi_konten: mentor.delegasi_konten || false
+    });
+    setShowEditMentorModal(true);
+  };
+
+  const handleSimpanEditMentor = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('mentor').update({
+        nama_mentor: editMentorData.nama_mentor,
+        no_hp: editMentorData.no_hp,
+        alamat: editMentorData.alamat,
+        honor_per_jam: editMentorData.honor_per_jam,
+        akses_inventaris: editMentorData.akses_inventaris,
+        delegasi_inventaris: editMentorData.delegasi_inventaris,
+        akses_perizinan: editMentorData.akses_perizinan,
+        delegasi_perizinan: editMentorData.delegasi_perizinan,
+        akses_konten: editMentorData.akses_konten,
+        delegasi_konten: editMentorData.delegasi_konten
+      }).eq('id', editMentorData.id);
+
+      if (error) throw error;
+
+      showToast('Data mentor & delegasi tugas berhasil diperbarui!');
+      setShowEditMentorModal(false);
+      fetchAllData();
+    } catch(err) {
+      showToast('Gagal edit mentor: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleToggleStatusMentor = async (mentorId, statusSaatIni) => {
     const statusBaru = statusSaatIni === 'aktif' ? 'non-aktif' : 'aktif';
     await supabase.from('mentor').update({ status: statusBaru }).eq('id', mentorId);
@@ -468,7 +519,7 @@ export default function App() {
     setFormPresensiMentor({ ...formPresensiMentor, total_jam: 0, kegiatan_pembelajaran: '' });
     fetchAllData();
   };
-  // ==========================================
+// ==========================================
   // 6. HANDLERS - PEMBAYARAN, LOGISTIK & SETUP WEB
   // ==========================================
   const filteredPembayaran = daftarPembayaran.filter(pb => {
@@ -519,7 +570,7 @@ export default function App() {
     fetchAllData();
   };
 
-  // INVENTARIS
+  // INVENTARIS LOGISTIK MULTI-PCS
   const handleTambahBarangBaru = async (e) => {
     e.preventDefault();
     await supabase.from('inventaris_logistik').insert([formBarangBaru]);
@@ -550,7 +601,7 @@ export default function App() {
         jumlah: formTransaksi.jumlah, 
         keterangan: formTransaksi.keterangan
       }]);
-      showToast(`Transaksi ${formTransaksi.tipe_transaksi} berhasil dicatat.`);
+      showToast(`Transaksi ${formTransaksi.tipe_transaksi} (${formTransaksi.jumlah} Pcs) berhasil dicatat.`);
       setShowTransaksiModal(false);
       fetchAllData();
     } catch(err) {
@@ -562,7 +613,30 @@ export default function App() {
   const handleSimpanPengaturanWeb = async (e) => {
     e.preventDefault();
     await supabase.from('pengaguran_web').upsert([pengaturanWeb]);
-    showToast('Pengaturan website berhasil disimpan!');
+    showToast('Pengaturan website & logo berhasil disimpan!');
+    fetchPengaturanWeb();
+  };
+
+  const openEditSectionModal = (sec) => {
+    setEditSectionData({
+      id: sec.id,
+      section_key: sec.section_key,
+      nama_section: sec.nama_section,
+      urutan: sec.urutan || 0,
+      is_aktif: sec.is_aktif ?? true
+    });
+    setShowEditSectionModal(true);
+  };
+
+  const handleSimpanEditSection = async (e) => {
+    e.preventDefault();
+    await supabase.from('landing_sections').update({
+      nama_section: editSectionData.nama_section,
+      urutan: editSectionData.urutan,
+      is_aktif: editSectionData.is_aktif
+    }).eq('id', editSectionData.id);
+    showToast('Pengaturan section landing page diperbarui!');
+    setShowEditSectionModal(false);
     fetchPengaturanWeb();
   };
 
@@ -718,9 +792,7 @@ export default function App() {
             {/* DASHBOARD KONTEN UTAMA */}
             <div className="flex-1 overflow-x-hidden space-y-6">
               
-              {/* ======================================================= */}
-              {/* PORTAL ADMIN                                            */}
-              {/* ======================================================= */}
+              {/* PORTAL ADMIN */}
               {userRole === 'admin' && (
                 <>
                   {/* TAB DASHBOARD */}
@@ -878,7 +950,7 @@ export default function App() {
                       {mentorSubTab === 'daftar' && (
                         <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-4">
                           <div className="flex justify-between items-center">
-                            <h3 className="font-black text-gray-900">Manajemen Akses & Status Mentor</h3>
+                            <h3 className="font-black text-gray-900">Manajemen Mentor & Pendelegasian Tugas</h3>
                             <select value={filterStatusMentor} onChange={e => setFilterStatusMentor(e.target.value)} className="border p-2 rounded-xl text-xs font-bold bg-gray-50">
                               <option value="aktif">Status: Aktif</option>
                               <option value="non-aktif">Status: Non-Aktif</option>
@@ -886,7 +958,7 @@ export default function App() {
                           </div>
                           <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50">
-                              <tr><th className="p-3 rounded-tl-xl">Mentor</th><th className="p-3">Honor/Jam</th><th className="p-3">Delegasi Logistik</th><th className="p-3 text-center rounded-tr-xl">Aksi Status</th></tr>
+                              <tr><th className="p-3 rounded-tl-xl">Mentor</th><th className="p-3">Honor/Jam</th><th className="p-3">Tugas Terdelegasi</th><th className="p-3 text-center rounded-tr-xl">Aksi</th></tr>
                             </thead>
                             <tbody>
                               {daftarMentor.filter(m => m.status === filterStatusMentor).map(m => (
@@ -894,11 +966,17 @@ export default function App() {
                                   <td className="p-3 font-bold">{m.nama_mentor} <span className="block text-xs font-normal text-gray-500">{m.email}</span></td>
                                   <td className="p-3 font-bold text-emerald-600">Rp {(Number(m.honor_per_jam)||0).toLocaleString('id-ID')}</td>
                                   <td className="p-3">
-                                    {(m.akses_inventaris || m.delegasi_inventaris) ? <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-1 rounded-full">✓ Diizinkan</span> : <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-full">Hanya Lihat Stok</span>}
+                                    <div className="flex flex-wrap gap-1">
+                                      {(m.akses_inventaris || m.delegasi_inventaris) && <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">📦 Logistik</span>}
+                                      {(m.akses_perizinan || m.delegasi_perizinan) && <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-full">📩 Perizinan</span>}
+                                      {(m.akses_konten || m.delegasi_konten) && <span className="bg-purple-100 text-purple-800 text-[10px] font-black px-2 py-0.5 rounded-full">📝 Konten</span>}
+                                      {!(m.akses_inventaris || m.delegasi_inventaris || m.akses_perizinan || m.delegasi_perizinan || m.akses_konten || m.delegasi_konten) && <span className="text-gray-400 text-xs italic">Tanpa Delegasi Khusus</span>}
+                                    </div>
                                   </td>
-                                  <td className="p-3 text-center">
+                                  <td className="p-3 text-center space-x-2">
+                                    <button onClick={() => openEditMentorModal(m)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button>
                                     <button onClick={() => handleToggleStatusMentor(m.id, m.status)} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${m.status === 'aktif' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                      {m.status === 'aktif' ? 'Non-aktifkan' : 'Aktifkan Kembali'}
+                                      {m.status === 'aktif' ? 'Non-aktifkan' : 'Aktifkan'}
                                     </button>
                                   </td>
                                 </tr>
@@ -972,7 +1050,6 @@ export default function App() {
                         </form>
                       </div>
 
-                      {/* FILTER & PENCARIAN PEMBAYARAN */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-purple-50 p-4 rounded-2xl border border-purple-100">
                         <input type="text" placeholder="🔍 Cari nama siswa..." value={searchSiswaPembayaran} onChange={e => setSearchSiswaPembayaran(e.target.value)} className="border p-3 rounded-xl text-xs font-bold bg-white" />
                         <select value={filterStatusPembayaran} onChange={e => setFilterStatusPembayaran(e.target.value)} className="border p-3 rounded-xl text-xs font-bold bg-white">
@@ -1048,14 +1125,14 @@ export default function App() {
                       <div className="pt-6 border-t">
                         <h4 className="font-extrabold text-gray-900 mb-4 text-sm">Riwayat Transaksi Logistik Terakhir</h4>
                         <table className="w-full text-left text-xs">
-                          <thead className="bg-gray-50"><tr><th className="p-3">Waktu</th><th className="p-3">Barang</th><th className="p-3">Tipe</th><th className="p-3">Jumlah</th><th className="p-3">Keterangan</th></tr></thead>
+                          <thead className="bg-gray-50"><tr><th className="p-3">Waktu</th><th className="p-3">Barang</th><th className="p-3">Tipe</th><th className="p-3">Jumlah (Pcs)</th><th className="p-3">Keterangan</th></tr></thead>
                           <tbody>
                             {daftarTransaksiLogistik.slice(0, 10).map(t => (
                               <tr key={t.id} className="border-t">
                                 <td className="p-3">{formatTanggalIndo(t.created_at)}</td>
                                 <td className="p-3 font-bold">{t.inventaris_logistik?.nama_barang}</td>
                                 <td className="p-3 font-bold">{t.tipe_transaksi === 'Masuk' ? <span className="text-emerald-600">[+] Masuk</span> : <span className="text-red-600">[-] Keluar</span>}</td>
-                                <td className="p-3 font-black">{t.jumlah}</td>
+                                <td className="p-3 font-black">{t.jumlah} Pcs</td>
                                 <td className="p-3 text-gray-500">{t.keterangan || '-'}</td>
                               </tr>
                             ))}
@@ -1068,31 +1145,42 @@ export default function App() {
                   {/* TAB SETUP & KONTEN */}
                   {adminTab === 'setup' && (
                     <div className="space-y-8">
-                      {/* Form Pengaturan Web */}
+                      {/* Form Pengaturan Web & Logo */}
                       <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-4">
-                        <h3 className="text-xl font-black text-[#581878]">Pengaturan Informasi Website (`pengaguran_web`)</h3>
+                        <h3 className="text-xl font-black text-[#581878]">Pengaturan Website & Branding (`pengaguran_web`)</h3>
                         <form onSubmit={handleSimpanPengaturanWeb} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <input type="text" placeholder="Judul Utama" required value={pengaturanWeb.judul_utama || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, judul_utama: e.target.value})} className="border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" />
-                          <input type="text" placeholder="Sub Judul" required value={pengaturanWeb.sub_judul || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, sub_judul: e.target.value})} className="border p-3.5 rounded-2xl text-sm bg-gray-50" />
-                          <input type="text" placeholder="URL Logo" value={pengaturanWeb.logo_url || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, logo_url: e.target.value})} className="border p-3.5 rounded-2xl text-sm bg-gray-50" />
-                          <input type="text" placeholder="No WA Admin" required value={pengaturanWeb.no_admin_wa || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, no_admin_wa: e.target.value})} className="border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" />
-                          <button type="submit" className="md:col-span-2 bg-[#581878] text-white py-3.5 rounded-2xl font-black text-sm shadow">Simpan Identitas Website</button>
+                          <input type="text" placeholder="Judul Utama Website" required value={pengaturanWeb.judul_utama || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, judul_utama: e.target.value})} className="border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" />
+                          <input type="text" placeholder="Sub Judul Website" required value={pengaturanWeb.sub_judul || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, sub_judul: e.target.value})} className="border p-3.5 rounded-2xl text-sm bg-gray-50" />
+                          <input type="text" placeholder="URL Gambar Logo (Cth: /logo.png)" value={pengaturanWeb.logo_url || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, logo_url: e.target.value})} className="border p-3.5 rounded-2xl text-sm bg-gray-50" />
+                          <input type="text" placeholder="No WA Admin WA (Cth: 628123...)" required value={pengaturanWeb.no_admin_wa || ''} onChange={e => setPengaturanWeb({...pengaturanWeb, no_admin_wa: e.target.value})} className="border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" />
+                          
+                          {pengaturanWeb.logo_url && (
+                            <div className="md:col-span-2 flex items-center space-x-3 bg-purple-50 p-3 rounded-2xl border">
+                              <span className="text-xs font-bold text-purple-900">Preview Logo Navbar:</span>
+                              <img src={pengaturanWeb.logo_url} alt="Logo Preview" className="h-8 object-contain" />
+                            </div>
+                          )}
+
+                          <button type="submit" className="md:col-span-2 bg-[#581878] text-white py-3.5 rounded-2xl font-black text-sm shadow">Simpan Pengaturan Branding</button>
                         </form>
                       </div>
 
                       {/* Setup Landing Sections */}
                       <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-4">
-                        <h3 className="text-xl font-black text-gray-900">Kelola Section Landing Page (`landing_sections`)</h3>
+                        <h3 className="text-xl font-black text-gray-900">Kelola Visibilitas & Urutan Landing Page (`landing_sections`)</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {landingSections.map(sec => (
                             <div key={sec.id} className="border p-4 rounded-2xl flex justify-between items-center bg-gray-50">
                               <div>
                                 <h5 className="font-bold text-gray-900 text-sm">{sec.nama_section}</h5>
-                                <p className="text-xs text-gray-400">Key: {sec.section_key} | Urutan: {sec.urutan}</p>
+                                <p className="text-xs text-gray-400">Key: {sec.section_key} | Urutan: <strong className="text-purple-700">{sec.urutan}</strong></p>
                               </div>
-                              <button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-4 py-2 rounded-xl text-xs font-black ${sec.is_aktif ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
-                                {sec.is_aktif ? 'Aktif' : 'Non-Aktif'}
-                              </button>
+                              <div className="flex items-center space-x-2">
+                                <button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button>
+                                <button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1.5 rounded-xl text-xs font-black ${sec.is_aktif ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                                  {sec.is_aktif ? 'Aktif' : 'Off'}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1119,12 +1207,9 @@ export default function App() {
                 </>
               )}
 
-              {/* ======================================================= */}
-              {/* PORTAL GURU                                             */}
-              {/* ======================================================= */}
+              {/* PORTAL GURU */}
               {userRole === 'guru' && (
                 <>
-                  {/* DASHBOARD MENTOR: REKAP JAM & ESTIMASI PENGHASILAN */}
                   {guruTab === 'beranda' && (
                     <div className="space-y-6">
                       <div className="bg-gradient-to-r from-purple-900 to-indigo-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
@@ -1157,10 +1242,8 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* PRESENSI SISWA & REKAP HARIAN CUSTOM */}
                   {guruTab === 'presensi' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* Input Presensi */}
                       <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                         <h3 className="text-xl font-black text-[#581878]">Input Presensi Kelas</h3>
                         <form onSubmit={handleTambahPresensiSiswa} className="space-y-4">
@@ -1189,7 +1272,6 @@ export default function App() {
                         </form>
                       </div>
 
-                      {/* Rekap Presensi Siswa Harian Custom Hari */}
                       <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-5">
                         <div className="flex justify-between items-center">
                           <h3 className="text-lg font-black text-gray-900">Rekap Siswa Harian</h3>
@@ -1214,7 +1296,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* MODUL INVENTARIS MENTOR (LIHAT STOK & DELEGASI TRANSAKSI) */}
                   {guruTab === 'modul' && (
                     <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
                       <div>
@@ -1248,7 +1329,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* PROFIL & GANTI PASSWORD MENTOR */}
                   {guruTab === 'profil' && (
                     <div className="max-w-xl mx-auto space-y-6">
                       <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4">
@@ -1360,10 +1440,70 @@ export default function App() {
           </div>
         )}
       </main>
-      {/* ========================================== */}
+{/* ========================================== */}
       {/* MODAL POPUPS UTAMA                         */}
       {/* ========================================== */}
       
+      {/* MODAL EDIT MENTOR & DELEGASI TUGAS */}
+      {showEditMentorModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="font-black text-2xl text-[#581878] mb-4">Edit Profile & Delegasi Mentor</h3>
+            <form onSubmit={handleSimpanEditMentor} className="space-y-4">
+              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Nama Mentor:</label><input type="text" required value={editMentorData.nama_mentor} onChange={e => setEditMentorData({...editMentorData, nama_mentor: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 font-bold" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-bold text-gray-600 mb-1 block">No HP:</label><input type="tel" required value={editMentorData.no_hp} onChange={e => setEditMentorData({...editMentorData, no_hp: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" /></div>
+                <div><label className="text-xs font-bold text-gray-600 mb-1 block">Honor / Jam (Rp):</label><input type="number" required value={editMentorData.honor_per_jam} onChange={e => setEditMentorData({...editMentorData, honor_per_jam: Number(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 font-bold text-emerald-700" /></div>
+              </div>
+              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Alamat:</label><textarea value={editMentorData.alamat} onChange={e => setEditMentorData({...editMentorData, alamat: e.target.value})} className="w-full border p-3 rounded-2xl text-sm bg-gray-50" rows="2" /></div>
+              
+              <div className="border p-4 rounded-2xl bg-purple-50 space-y-2">
+                <p className="text-xs font-black text-purple-900 uppercase mb-2">Pendelegasian Tugas & Hak Akses:</p>
+                <label className="text-xs flex items-center cursor-pointer font-bold"><input type="checkbox" checked={editMentorData.delegasi_inventaris} onChange={e => setEditMentorData({...editMentorData, delegasi_inventaris: e.target.checked, akses_inventaris: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Kelola Stok & Transaksi Logistik (Buku/Modul)</label>
+                <label className="text-xs flex items-center cursor-pointer font-bold"><input type="checkbox" checked={editMentorData.delegasi_perizinan} onChange={e => setEditMentorData({...editMentorData, delegasi_perizinan: e.target.checked, akses_perizinan: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Kelola Perizinan Siswa</label>
+                <label className="text-xs flex items-center cursor-pointer font-bold"><input type="checkbox" checked={editMentorData.delegasi_konten} onChange={e => setEditMentorData({...editMentorData, delegasi_konten: e.target.checked, akses_konten: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Kelola Artikel & Video Edukasi Publik</label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowEditMentorModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow">Simpan Perubahan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT SECTION LANDING PAGE */}
+      {showEditSectionModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+            <h3 className="font-black text-xl text-[#581878] mb-4">Edit Section Landing Page</h3>
+            <form onSubmit={handleSimpanEditSection} className="space-y-4">
+              <div><label className="text-xs font-bold block mb-1">Key Section:</label><input type="text" readOnly value={editSectionData.section_key} className="w-full border p-3 rounded-2xl text-xs bg-gray-200 font-bold" /></div>
+              <div><label className="text-xs font-bold block mb-1">Nama Tampilan Section:</label><input type="text" required value={editSectionData.nama_section} onChange={e => setEditSectionData({...editSectionData, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Urutan Tampilan (1, 2, 3...):</label><input type="number" required value={editSectionData.urutan} onChange={e => setEditSectionData({...editSectionData, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <label className="text-xs flex items-center font-bold cursor-pointer pt-1"><input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Tampilkan Section Ini (Aktif)</label>
+              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowEditSectionModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TRANSAKSI INVENTARIS (MULTI-PCS) */}
+      {showTransaksiModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+            <h3 className="font-black text-2xl text-gray-900 mb-1">Transaksi Stok</h3>
+            <p className="text-xs text-gray-500 mb-6 border-b pb-4">Tipe: <strong className={formTransaksi.tipe_transaksi === 'Masuk' ? 'text-emerald-600' : 'text-red-600'}>{formTransaksi.tipe_transaksi}</strong> | <strong>{formTransaksi.nama_barang}</strong></p>
+            <form onSubmit={handleSimpanTransaksiInventaris} className="space-y-5">
+              <div>
+                <label className="text-xs font-bold block mb-1.5 text-gray-600">Jumlah Barang / Pcs ({formTransaksi.tipe_transaksi}):</label>
+                <input type="number" min="1" required value={formTransaksi.jumlah} onChange={e => setFormTransaksi({...formTransaksi, jumlah: parseInt(e.target.value) || 1})} className="w-full border p-4 rounded-2xl text-xl text-center bg-gray-50 font-black text-purple-900" />
+              </div>
+              <div><label className="text-xs font-bold block mb-1.5 text-gray-600">Catatan (Opsional):</label><input type="text" placeholder="Cth: Penyerahan ke siswa X (5 Pcs)" value={formTransaksi.keterangan} onChange={e => setFormTransaksi({...formTransaksi, keterangan: e.target.value})} className="w-full border p-4 rounded-2xl text-sm bg-gray-50" /></div>
+              <div className="flex justify-end space-x-3 pt-2"><button type="button" onClick={() => setShowTransaksiModal(false)} className="px-6 py-3.5 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition hover:bg-gray-300">Batal</button><button type="submit" className={`px-6 py-3.5 text-white rounded-xl text-sm font-black shadow-lg transition ${formTransaksi.tipe_transaksi === 'Masuk' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>Simpan Transaksi</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL TAMBAH SISWA MANUAL (ADMIN) */}
       {showTambahSiswaModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -1388,7 +1528,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL TAMBAH MENTOR BARU (ADMIN AUTH & DELEGASI) */}
+      {/* MODAL TAMBAH MENTOR BARU */}
       {showTambahMentorModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1403,7 +1543,7 @@ export default function App() {
               </div>
               <div className="border p-4 rounded-2xl bg-purple-50/50 space-y-2">
                 <p className="text-xs font-black text-purple-900 uppercase">Delegasi Hak Akses:</p>
-                <label className="text-xs flex items-center"><input type="checkbox" checked={formTambahMentor.delegasi_inventaris} onChange={e => setFormTambahMentor({...formTambahMentor, delegasi_inventaris: e.target.checked, akses_inventaris: e.target.checked})} className="mr-2" /> Izinkan Transaksi Inventaris/Modul</label>
+                <label className="text-xs flex items-center"><input type="checkbox" checked={formTambahMentor.delegasi_inventaris} onChange={e => setFormTambahMentor({...formTambahMentor, delegasi_inventaris: e.target.checked, akses_inventaris: e.target.checked})} className="mr-2" /> Izinkan Transaksi Logistik (Buku/Modul)</label>
               </div>
               <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowTambahMentorModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-[#581878] text-white rounded-xl text-xs font-black shadow">Daftarkan Mentor</button></div>
             </form>
@@ -1442,21 +1582,6 @@ export default function App() {
                 <div><label className="text-xs font-bold text-gray-600 mb-1.5 block">Selesai (+1 Bln):</label><input type="date" required value={approveData.tanggal_selesai} onChange={e => setApproveData({...approveData, tanggal_selesai: e.target.value})} className="w-full border p-4 rounded-2xl text-xs bg-gray-50 font-bold" /></div>
               </div>
               <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowApproveModal(false)} className="px-6 py-3.5 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition hover:bg-gray-300">Batal</button><button type="submit" className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-lg transition">Simpan & Aktifkan</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL TRANSAKSI INVENTARIS */}
-      {showTransaksiModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
-            <h3 className="font-black text-2xl text-gray-900 mb-1">Transaksi Stok</h3>
-            <p className="text-xs text-gray-500 mb-6 border-b pb-4">Tipe: <strong className={formTransaksi.tipe_transaksi === 'Masuk' ? 'text-emerald-600' : 'text-red-600'}>{formTransaksi.tipe_transaksi}</strong> | <strong>{formTransaksi.nama_barang}</strong></p>
-            <form onSubmit={handleSimpanTransaksiInventaris} className="space-y-5">
-              <div><label className="text-xs font-bold block mb-1.5 text-gray-600">Jumlah Barang {formTransaksi.tipe_transaksi}:</label><input type="number" min="1" required value={formTransaksi.jumlah} onChange={e => setFormTransaksi({...formTransaksi, jumlah: parseInt(e.target.value)})} className="w-full border p-4 rounded-2xl text-lg text-center bg-gray-50 font-black" /></div>
-              <div><label className="text-xs font-bold block mb-1.5 text-gray-600">Catatan (Opsional):</label><input type="text" placeholder="Cth: Penyerahan ke siswa X" value={formTransaksi.keterangan} onChange={e => setFormTransaksi({...formTransaksi, keterangan: e.target.value})} className="w-full border p-4 rounded-2xl text-sm bg-gray-50" /></div>
-              <div className="flex justify-end space-x-3 pt-2"><button type="button" onClick={() => setShowTransaksiModal(false)} className="px-6 py-3.5 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition hover:bg-gray-300">Batal</button><button type="submit" className={`px-6 py-3.5 text-white rounded-xl text-sm font-black shadow-lg transition ${formTransaksi.tipe_transaksi === 'Masuk' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>Simpan Transaksi</button></div>
             </form>
           </div>
         </div>
