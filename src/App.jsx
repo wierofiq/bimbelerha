@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 // ==========================================
 // INISIALISASI SUPABASE CLIENT
 // ==========================================
-'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -519,7 +520,8 @@ export default function App() {
     setFormPresensiMentor({ ...formPresensiMentor, total_jam: 0, kegiatan_pembelajaran: '' });
     fetchAllData();
   };
-// ==========================================
+
+  // ==========================================
   // 6. HANDLERS - PEMBAYARAN, LOGISTIK & SETUP WEB
   // ==========================================
   const filteredPembayaran = daftarPembayaran.filter(pb => {
@@ -770,7 +772,7 @@ export default function App() {
                     <>
                       {['dashboard','siswa','mentor','pembayaran','modul','setup'].map(tab => (
                         <button key={tab} onClick={() => { setAdminTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition capitalize ${adminTab === tab ? 'bg-purple-900 text-white shadow-lg' : 'text-gray-600 hover:bg-purple-50'}`}>
-                          <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍🏫':tab==='pembayaran'?'💵':tab==='modul'?'📦':'⚙️'}</span> 
+                          <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍‍🏫':tab==='pembayaran'?'💵':tab==='modul'?'📦':'⚙️'}</span> 
                           <span>{tab==='setup'?'Setup & Konten':tab}</span>
                         </button>
                       ))}
@@ -1440,7 +1442,8 @@ export default function App() {
           </div>
         )}
       </main>
-{/* ========================================== */}
+
+      {/* ========================================== */}
       {/* MODAL POPUPS UTAMA                         */}
       {/* ========================================== */}
       
