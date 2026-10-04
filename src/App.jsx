@@ -69,7 +69,7 @@ export default function App() {
   const [trackingResult, setTrackingResult] = useState(null);
   const [trackingError, setTrackingError] = useState('');
 
-  // Fitur Presensi Guru (Diperbaiki & Dioptimalkan)
+  // Fitur Presensi Guru
   const [searchSiswaPresensi, setSearchSiswaPresensi] = useState(''); 
   const [isDropdownPresensiOpen, setIsDropdownPresensiOpen] = useState(false);
 
@@ -216,7 +216,7 @@ export default function App() {
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setUserRole('guru'); setCurrentMentorProfile(null); };
 
   // ==========================================
-  // HANDLERS - ADMIN & WEB SETUP (URUTAN SECTION)
+  // HANDLERS - ADMIN & WEB SETUP
   // ==========================================
   const handleSimpanPengaturanWeb = async (e) => {
     e.preventDefault();
@@ -236,7 +236,6 @@ export default function App() {
   const handleUpdateUrutanSection = async (sectionId, newUrutan, newStatus) => {
     try {
       await supabase.from('landing_sections').update({ urutan: newUrutan, is_aktif: newStatus }).eq('id', sectionId);
-      // Update state lokal secara instan
       setLandingSections(landingSections.map(sec => sec.id === sectionId ? { ...sec, urutan: newUrutan, is_aktif: newStatus } : sec));
     } catch(err) {
       alert('Gagal memperbarui urutan section: ' + err.message);
@@ -369,7 +368,7 @@ export default function App() {
     try {
       await supabase.auth.signUp({ email: newMentor.email, password: newMentor.password, options: { data: { role: 'guru' } } });
       await supabase.from('mentor').insert([newMentor]);
-      alert('✅ Mentor ditambahkan!');
+      alert('✅ Mentor berhasil ditambahkan!');
       setNewMentor({ nama_mentor: '', email: '', password: '', no_hp: '', alamat: '', honor_per_jam: 25000, status: 'aktif' });
       fetchAllData();
     } catch (err) { alert(err.message); } finally { setLoading(false); }
@@ -377,6 +376,23 @@ export default function App() {
 
   const handleToggleDelegasiMentor = async (mentorId, fieldKey, currentValue) => {
     await supabase.from('mentor').update({ [fieldKey]: !currentValue }).eq('id', mentorId);
+    fetchAllData();
+  };
+
+  const handleTambahPresensiMentor = async (e) => {
+    e.preventDefault();
+    await supabase.from('presensi_mentor').insert([formPresensiMentor]);
+    alert('✅ Presensi mentor tersimpan!');
+    setFormPresensiMentor({ ...formPresensiMentor, total_jam: 0, kegiatan_pembelajaran: '' });
+    fetchAllData();
+  };
+
+  const handleSimpanGaji = async (e) => {
+    e.preventDefault();
+    const mentorRec = daftarMentor.find(m => m.id === formGaji.mentor_id);
+    const totalJam = daftarPresensiMentor.filter(pm => pm.mentor_id === formGaji.mentor_id && pm.tanggal?.startsWith(formGaji.bulan_periode)).reduce((acc, curr) => acc + (Number(curr.total_jam) || 0), 0);
+    await supabase.from('penggajian_mentor').insert([{ ...formGaji, total_jam_mengajar: totalJam, honor_per_jam: mentorRec?.honor_per_jam || 25000, status_pembayaran: 'draft' }]);
+    alert('✅ Slip gaji berhasil digenerate!');
     fetchAllData();
   };
 
@@ -421,9 +437,7 @@ export default function App() {
     fetchAllData();
   };
 
-  // ==========================================
-  // GURU & PRESENSI HANDLERS (DIPERBAIKI)
-  // ==========================================
+  // GURU & PRESENSI HANDLERS
   const handleUpdateProfilGuru = async (e) => {
     e.preventDefault();
     await supabase.from('mentor').update({ foto_url: currentMentorProfile.foto_url, no_hp: currentMentorProfile.no_hp, alamat: currentMentorProfile.alamat }).eq('id', currentMentorProfile.id);
@@ -559,7 +573,7 @@ export default function App() {
                   <button onClick={() => setAdminTab('setup_web')} className={`py-2.5 px-5 font-extrabold rounded-t-xl text-sm whitespace-nowrap ${adminTab === 'setup_web' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>⚙️ SETUP & KONTEN</button>
                 </div>
 
-                {/* TAB SETUP WEB & PENGATURAN URUTAN SECTION */}
+                {/* TAB SETUP WEB & URUTAN LANDING PAGE */}
                 {adminTab === 'setup_web' && (
                   <div className="space-y-6">
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100 max-w-2xl mx-auto">
@@ -585,7 +599,6 @@ export default function App() {
                       </form>
                     </div>
 
-                    {/* MENU PENGATURAN URUTAN & VISIBILITAS LANDING PAGE */}
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100 max-w-2xl mx-auto">
                       <h3 className="text-lg font-bold text-[#581878] mb-2">Pengaturan Urutan & Visibilitas Landing Page</h3>
                       <p className="text-xs text-gray-500 mb-4">Atur nomor urut dan status aktif untuk menampilkan atau menyembunyikan blok di halaman utama.</p>
@@ -640,6 +653,7 @@ export default function App() {
                       <button onClick={() => setSiswaSubTab('persetujuan')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'persetujuan' ? 'bg-amber-400 text-purple-950' : 'bg-white'}`}>Persetujuan Baru</button>
                       <button onClick={() => setSiswaSubTab('data')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'data' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Data & Bar Progress</button>
                       <button onClick={() => setSiswaSubTab('tambah_manual')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'tambah_manual' ? 'bg-purple-900 text-white' : 'bg-white'}`}>+ Tambah Manual</button>
+                      <button onClick={() => setSiswaSubTab('presensi')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'presensi' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Rekap Presensi</button>
                     </div>
 
                     {siswaSubTab === 'persetujuan' && (
@@ -712,26 +726,95 @@ export default function App() {
                         </table>
                       </div>
                     )}
+
+                    {siswaSubTab === 'presensi' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-bold text-[#581878]">Rekap Presensi Siswa Global</h3>
+                          <input type="month" value={filterBulanPresensi} onChange={e => setFilterBulanPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm" />
+                        </div>
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-purple-50"><tr><th className="p-3">Tanggal</th><th className="p-3">Siswa</th><th className="p-3">Mentor</th><th className="p-3">Sesi</th><th className="p-3">Jurnal</th></tr></thead>
+                          <tbody>
+                            {daftarPresensiSiswa.filter(ps => filterBulanPresensi ? ps.tanggal_pertemuan?.startsWith(filterBulanPresensi) : true).map(ps => (
+                              <tr key={ps.id} className="border-b">
+                                <td className="p-3">{formatTanggalIndo(ps.tanggal_pertemuan)}</td>
+                                <td className="p-3 font-bold">{ps.periode_belajar?.siswa?.nama_murid}</td>
+                                <td className="p-3 text-purple-900 font-bold">{ps.mentor?.nama_mentor}</td>
+                                <td className="p-3 text-center font-bold">{ps.pertemuan_ke}</td>
+                                <td className="p-3 text-gray-600">{ps.jurnal_materi}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* TAB MENTOR */}
+                {/* TAB MENTOR (LENGKAP: DAFTAR & DELEGASI, TAMBAH, PRESENSI, PAYROLL) */}
                 {adminTab === 'mentor' && (
                   <div className="space-y-6">
-                    <div className="bg-white rounded-2xl p-6 shadow-md border">
-                      <h3 className="text-lg font-bold text-[#581878] mb-4">Manajemen Mentor & Hak Delegasi</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {daftarMentor.map(m => (
-                          <div key={m.id} className="border p-4 rounded-xl bg-gray-50 flex justify-between items-center">
-                            <div><h5 className="font-bold">{m.nama_mentor}</h5><p className="text-xs text-gray-500">{m.email}</p></div>
-                            <div className="space-y-1 text-right">
-                              <label className="text-[10px] font-bold block cursor-pointer"><input type="checkbox" checked={!!m.akses_inventaris} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_inventaris', m.akses_inventaris)} className="mr-1" /> Inv</label>
-                              <label className="text-[10px] font-bold block cursor-pointer"><input type="checkbox" checked={!!m.akses_konten} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_konten', m.akses_konten)} className="mr-1" /> Konten</label>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="flex space-x-2 border-b pb-3 overflow-x-auto">
+                      <button onClick={() => setMentorSubTab('daftar')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${mentorSubTab === 'daftar' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Daftar & Delegasi</button>
+                      <button onClick={() => setMentorSubTab('tambah')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${mentorSubTab === 'tambah' ? 'bg-purple-900 text-white' : 'bg-white'}`}>+ Tambah Mentor</button>
+                      <button onClick={() => setMentorSubTab('presensi')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${mentorSubTab === 'presensi' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Presensi Mentor</button>
+                      <button onClick={() => setMentorSubTab('penggajian')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${mentorSubTab === 'penggajian' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Hitung Payroll</button>
                     </div>
+
+                    {mentorSubTab === 'daftar' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border">
+                        <h3 className="text-lg font-bold text-[#581878] mb-4">Manajemen Mentor & Hak Delegasi</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {daftarMentor.map(m => (
+                            <div key={m.id} className="border p-4 rounded-xl bg-gray-50 flex justify-between items-center">
+                              <div><h5 className="font-bold">{m.nama_mentor}</h5><p className="text-xs text-gray-500">{m.email}</p></div>
+                              <div className="space-y-1 text-right">
+                                <label className="text-[10px] font-bold block cursor-pointer"><input type="checkbox" checked={!!m.akses_inventaris} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_inventaris', m.akses_inventaris)} className="mr-1" /> Inv</label>
+                                <label className="text-[10px] font-bold block cursor-pointer"><input type="checkbox" checked={!!m.akses_konten} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_konten', m.akses_konten)} className="mr-1" /> Konten</label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {mentorSubTab === 'tambah' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border max-w-xl mx-auto">
+                        <h3 className="text-lg font-bold text-[#581878] mb-4">Pendaftaran Mentor Baru</h3>
+                        <form onSubmit={handleTambahMentor} className="space-y-4">
+                          <input type="text" placeholder="Nama Lengkap" required value={newMentor.nama_mentor} onChange={e => setNewMentor({...newMentor, nama_mentor: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="email" placeholder="Email Login" required value={newMentor.email} onChange={e => setNewMentor({...newMentor, email: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="password" placeholder="Password (Min 6 karakter)" required value={newMentor.password} onChange={e => setNewMentor({...newMentor, password: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="text" placeholder="No WhatsApp" required value={newMentor.no_hp} onChange={e => setNewMentor({...newMentor, no_hp: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="number" placeholder="Tarif Honor per Jam" required value={newMentor.honor_per_jam} onChange={e => setNewMentor({...newMentor, honor_per_jam: Number(e.target.value)})} className="border p-3 rounded-xl w-full text-sm bg-amber-50 font-bold" />
+                          <button type="submit" className="w-full bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Simpan Mentor</button>
+                        </form>
+                      </div>
+                    )}
+
+                    {mentorSubTab === 'presensi' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border space-y-4">
+                        <h3 className="text-lg font-bold text-[#581878]">Input Total Jam Kerja Mentor</h3>
+                        <form onSubmit={handleTambahPresensiMentor} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl">
+                          <select required value={formPresensiMentor.mentor_id} onChange={e => setFormPresensiMentor({...formPresensiMentor, mentor_id: e.target.value})} className="border p-3 rounded-xl bg-white text-sm"><option value="">-- Pilih Mentor --</option>{daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}</select>
+                          <input type="date" required value={formPresensiMentor.tanggal} onChange={e => setFormPresensiMentor({...formPresensiMentor, tanggal: e.target.value})} className="border p-3 rounded-xl text-sm" />
+                          <input type="number" step="0.5" placeholder="Total Jam" required value={formPresensiMentor.total_jam} onChange={e => setFormPresensiMentor({...formPresensiMentor, total_jam: parseFloat(e.target.value)})} className="border p-3 rounded-xl text-sm font-bold" />
+                          <button type="submit" className="bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Simpan Jam</button>
+                        </form>
+                      </div>
+                    )}
+
+                    {mentorSubTab === 'penggajian' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border space-y-4">
+                        <h3 className="text-lg font-bold text-[#581878]">Kalkulator Payroll / Gaji</h3>
+                        <form onSubmit={handleSimpanGaji} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
+                          <select required value={formGaji.mentor_id} onChange={e => setFormGaji({...formGaji, mentor_id: e.target.value})} className="border p-3 rounded-xl bg-white text-sm"><option value="">-- Pilih Mentor --</option>{daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}</select>
+                          <input type="month" required value={formGaji.bulan_periode} onChange={e => setFormGaji({...formGaji, bulan_periode: e.target.value})} className="border p-3 rounded-xl text-sm" />
+                          <button type="submit" className="bg-emerald-600 text-white py-3 rounded-xl font-bold shadow">Generate Slip Gaji</button>
+                        </form>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -769,7 +852,7 @@ export default function App() {
             )}
 
             {/* ======================================================= */}
-            {/* PORTAL GURU (PRESENSI DIPERBAIKI)                       */}
+            {/* PORTAL GURU                                             */}
             {/* ======================================================= */}
             {userRole === 'guru' && (
               <div className="space-y-6">
@@ -873,7 +956,7 @@ export default function App() {
           </div>
         ) : (
           /* ======================================================= */
-          /* LANDING PAGE PUBLIK (DINAMIS BERDASARKAN URUTAN SECTION)*/
+          /* LANDING PAGE PUBLIK                                     */
           /* ======================================================= */
           <div className="space-y-16 pb-20">
             {(() => {
@@ -943,14 +1026,14 @@ export default function App() {
                     <section key={sec.id} className="max-w-6xl mx-auto px-4">
                       <h3 className="text-3xl font-black text-center text-[#581878] mb-10">Artikel & Video Edukasi</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {daftarKonten.map(k => (
+                        {(daftarKonten || []).map(k => (
                           <div key={k.id} className="bg-white p-6 rounded-3xl shadow border">
                             <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-800 px-2 py-1 rounded">{k.tipe}</span>
                             <h4 className="text-xl font-bold text-gray-900 mt-2 mb-2">{k.judul}</h4>
                             <p className="text-xs text-gray-600">{k.isi}</p>
                           </div>
                         ))}
-                        {daftarKonten.length === 0 && <div className="col-span-full text-center py-6 text-gray-400 bg-white rounded-3xl border">Belum ada konten publik yang dipublikasikan.</div>}
+                        {(!daftarKonten || daftarKonten.length === 0) && <div className="col-span-full text-center py-6 text-gray-400 bg-white rounded-3xl border">Belum ada konten publik yang dipublikasikan.</div>}
                       </div>
                     </section>
                   );
