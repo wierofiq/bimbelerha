@@ -79,6 +79,7 @@ export default function App() {
   const [showTambahBarangModal, setShowTambahBarangModal] = useState(false);
   const [showTambahKontenModal, setShowTambahKontenModal] = useState(false);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
+  const [showTambahSectionModal, setShowTambahSectionModal] = useState(false);
 
   // Form States
   const [formDaftar, setFormDaftar] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'SD' });
@@ -103,6 +104,10 @@ export default function App() {
 
   const [editSectionData, setEditSectionData] = useState({
     id: '', section_key: '', nama_section: '', urutan: 0, is_aktif: true
+  });
+
+  const [formTambahSection, setFormTambahSection] = useState({
+    section_key: '', nama_section: '', urutan: 1, is_aktif: true
   });
 
   const [formBarangBaru, setFormBarangBaru] = useState({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
@@ -680,9 +685,34 @@ export default function App() {
     fetchPengaturanWeb();
   };
 
+  const handleUpdateUrutanSection = async (secId, newUrutan) => {
+    await supabase.from('landing_sections').update({ urutan: parseInt(newUrutan) || 1 }).eq('id', secId);
+    showToast('Urutan section berhasil diperbarui!');
+    fetchPengaturanWeb();
+  };
+
   const handleToggleSection = async (secId, currentStatus) => {
     await supabase.from('landing_sections').update({ is_aktif: !currentStatus }).eq('id', secId);
     showToast('Status section diperbarui!');
+    fetchPengaturanWeb();
+  };
+
+  const handleTambahSectionBaru = async (e) => {
+    e.preventDefault();
+    if (!formTambahSection.section_key || !formTambahSection.nama_section) {
+      return showToast('Isi Key dan Nama Section terlebih dahulu!', 'error');
+    }
+    await supabase.from('landing_sections').insert([formTambahSection]);
+    showToast('Section landing page baru ditambahkan!');
+    setShowTambahSectionModal(false);
+    setFormTambahSection({ section_key: '', nama_section: '', urutan: landingSections.length + 1, is_aktif: true });
+    fetchPengaturanWeb();
+  };
+
+  const handleHapusSection = async (secId) => {
+    if(!window.confirm('Hapus section landing page ini?')) return;
+    await supabase.from('landing_sections').delete().eq('id', secId);
+    showToast('Section landing page berhasil dihapus.');
     fetchPengaturanWeb();
   };
 
@@ -1182,7 +1212,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* TAB SETUP & KONTEN */}
+                  {/* TAB SETUP & KONTEN (PERBAIKAN PENGATURAN LANDING) */}
                   {adminTab === 'setup' && (
                     <div className="space-y-8">
                       {/* Form Pengaturan Web & Logo */}
@@ -1205,24 +1235,65 @@ export default function App() {
                         </form>
                       </div>
 
-                      {/* Setup Landing Sections */}
+                      {/* Setup Landing Sections (FITUR DIATUR ULANG & LENGKAP) */}
                       <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-4">
-                        <h3 className="text-xl font-black text-gray-900">Kelola Visibilitas & Urutan Landing Page (`landing_sections`)</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {landingSections.map(sec => (
-                            <div key={sec.id} className="border p-4 rounded-2xl flex justify-between items-center bg-gray-50">
-                              <div>
-                                <h5 className="font-bold text-gray-900 text-sm">{sec.nama_section}</h5>
-                                <p className="text-xs text-gray-400">Key: {sec.section_key} | Urutan Tampil: <strong className="text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md font-black">{sec.urutan}</strong></p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button>
-                                <button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1.5 rounded-xl text-xs font-black ${sec.is_aktif ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
-                                  {sec.is_aktif ? 'Aktif' : 'Off'}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                          <div>
+                            <h3 className="text-xl font-black text-gray-900">Pengaturan Tampilan & Urutan Landing Page</h3>
+                            <p className="text-xs text-gray-500">Urutan tampilan di bawah ini langsung sinkron secara otomatis di halaman publik.</p>
+                          </div>
+                          <button onClick={() => setShowTambahSectionModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Section Landing</button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                            <thead className="bg-purple-50">
+                              <tr>
+                                <th className="p-3 rounded-tl-xl w-16 text-center">Urutan</th>
+                                <th className="p-3">Nama Section</th>
+                                <th className="p-3">Key Identifikasi</th>
+                                <th className="p-3 text-center">Status Tampil</th>
+                                <th className="p-3 text-center rounded-tr-xl">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[...landingSections].sort((a,b) => (a.urutan||0) - (b.urutan||0)).map(sec => (
+                                <tr key={sec.id} className="border-t hover:bg-gray-50 transition-colors">
+                                  <td className="p-3 text-center">
+                                    <input 
+                                      type="number" 
+                                      value={sec.urutan} 
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setLandingSections(prev => prev.map(s => s.id === sec.id ? { ...s, urutan: val } : s));
+                                      }}
+                                      onBlur={(e) => handleUpdateUrutanSection(sec.id, e.target.value)}
+                                      className="w-12 text-center border p-1 rounded-lg font-black text-purple-900 bg-purple-50"
+                                    />
+                                  </td>
+                                  <td className="p-3 font-bold text-gray-900">{sec.nama_section}</td>
+                                  <td className="p-3 text-xs font-mono text-purple-700 bg-purple-50/50 rounded-lg inline-block my-1">{sec.section_key}</td>
+                                  <td className="p-3 text-center">
+                                    <button 
+                                      onClick={() => handleToggleSection(sec.id, sec.is_aktif)} 
+                                      className={`px-3 py-1 rounded-full text-xs font-black transition ${sec.is_aktif ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}
+                                    >
+                                      {sec.is_aktif ? '✓ Aktif Tampil' : '✕ Non-Aktif'}
+                                    </button>
+                                  </td>
+                                  <td className="p-3 text-center space-x-2">
+                                    <button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit Modal</button>
+                                    <button onClick={() => handleHapusSection(sec.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-2.5 py-1.5 rounded-xl text-xs font-bold">Hapus</button>
+                                  </td>
+                                </tr>
+                              ))}
+                              {landingSections.length === 0 && (
+                                <tr>
+                                  <td colSpan="5" className="text-center p-8 text-gray-400 italic">Belum ada section landing page terdaftar. Klik "+ Tambah Section Landing".</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
 
@@ -1429,7 +1500,7 @@ export default function App() {
                   );
                 }
 
-                // 2. CEK LAPORAN ORANG TUA SECTION (FITUR BARU)
+                // 2. CEK LAPORAN ORANG TUA SECTION
                 if (key === 'cek_laporan') {
                   return (
                     <section key={sec.id} className="max-w-4xl mx-auto px-4 py-12 -mt-16 relative z-30">
@@ -1629,6 +1700,22 @@ export default function App() {
               <div><label className="text-xs font-bold block mb-1">Urutan Tampilan (1, 2, 3...):</label><input type="number" required value={editSectionData.urutan} onChange={e => setEditSectionData({...editSectionData, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <label className="text-xs flex items-center font-bold cursor-pointer pt-1"><input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Tampilkan Section Ini (Aktif)</label>
               <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowEditSectionModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH SECTION LANDING PAGE BARU */}
+      {showTambahSectionModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+            <h3 className="font-black text-xl text-[#581878] mb-4">Tambah Section Landing Baru</h3>
+            <form onSubmit={handleTambahSectionBaru} className="space-y-4">
+              <div><label className="text-xs font-bold block mb-1">Key Identifikasi (Cth: cek_laporan):</label><input type="text" required placeholder="cek_laporan / info_guru" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Nama Judul Section:</label><input type="text" required placeholder="Laporan Siswa" value={formTambahSection.nama_section} onChange={e => setFormTambahSection({...formTambahSection, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Urutan Ke-:</label><input type="number" required value={formTambahSection.urutan} onChange={e => setFormTambahSection({...formTambahSection, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <label className="text-xs flex items-center font-bold cursor-pointer pt-1"><input type="checkbox" checked={formTambahSection.is_aktif} onChange={e => setFormTambahSection({...formTambahSection, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Langsung Aktifkan</label>
+              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowTambahSectionModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black shadow">Simpan Section</button></div>
             </form>
           </div>
         </div>
