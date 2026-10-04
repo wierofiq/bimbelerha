@@ -9,8 +9,8 @@ import {
 // ==========================================
 // KONFIGURASI SUPABASE (Sesuaikan kredensial Anda)
 // ==========================================
-const SUPABASE_URL = 'https://izifwpviqpyxauafdlge.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+const SUPABASE_URL = 'https://your-supabase-url.supabase.co';
+const SUPABASE_ANON_KEY = 'your-supabase-anon-key';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default function App() {
@@ -77,7 +77,7 @@ export default function App() {
   // Handler Pendaftaran Online & WhatsApp
   const handleRegister = (e) => {
     e.preventDefault();
-    const adminPhone = "6281234567890"; 
+    const adminPhone = "6281234567890"; // Ganti dengan nomor WhatsApp admin Bimbel ErHa
     const message = `Halo Admin Bimbel ErHa, saya ingin mendaftarkan siswa baru:\n\nNama Siswa: ${regForm.name}\nNama Wali: ${regForm.parentName}\nNo. HP/WA: ${regForm.phone}\nJenjang: ${regForm.level}\nPaket: ${regForm.package}\n\nMohon informasinya lebih lanjut. Terima kasih!`;
     const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
     
@@ -86,32 +86,34 @@ export default function App() {
     setRegForm({ name: '', parentName: '', phone: '', package: 'Reguler (12 Sesi)', level: 'SD' });
   };
 
-  // Handler Login & Role Verification yang Diperbaiki
+  // Handler Login & Role Verification (Pengecekan Hak Akses)
   const handleLogin = (e) => {
     e.preventDefault();
+    // Simulasi Role Check berdasarkan kredensial
     if (loginForm.email === 'admin@erha.com' && loginForm.password === 'admin123') {
       setUser({ role: 'admin', name: 'Administrator', email: loginForm.email });
-      setView('admin'); // Memastikan view berubah total ke admin
+      setView('admin');
     } else if (loginForm.email === 'guru@erha.com' && loginForm.password === 'guru123') {
       setUser({ role: 'teacher', name: 'Budi Santoso, S.Pd.', email: loginForm.email, phone: '081298765432' });
-      setView('teacher'); // Memastikan view berubah total ke teacher
+      setView('teacher'); // Redirect otomatis ke Dasbor Khusus Mentor
     } else {
-      alert("Email atau Password salah! Gunakan akun uji coba yang sesuai.");
+      alert("Email atau Password salah!");
     }
   };
 
   const handleLogout = () => {
     setUser(null);
     setView('landing');
-    setLoginForm({ email: '', password: '' });
   };
 
+  // Handler Simpan Presensi oleh Guru
   const handleSaveAttendance = (e) => {
     e.preventDefault();
     alert(`Presensi dan Jurnal Sesi ke-${attendanceForm.sessionNumber} berhasil disimpan!`);
     setAttendanceForm({ studentId: '', sessionNumber: '1', status: 'Hadir', journal: '' });
   };
 
+  // Handler Ubah Password Guru
   const handleChangePassword = (e) => {
     e.preventDefault();
     if (passForm.newPass !== passForm.confirmPass) {
@@ -201,7 +203,7 @@ export default function App() {
       {/* KONTEN UTAMA BERDASARKAN VIEW */}
       <main className="flex-grow">
         
-        {/* 1. LANDING PAGE */}
+        {/* 1. LANDING PAGE & PENDAFTARAN */}
         {view === 'landing' && (
           <div>
             <section className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white py-20 px-4">
@@ -340,7 +342,7 @@ export default function App() {
           </div>
         )}
 
-        {/* 2. HALAMAN LOGIN PORTAL */}
+        {/* 2. HALAMAN LOGIN PORTAL (ROLE CHECK) */}
         {view === 'login' && (
           <div className="max-w-md mx-auto py-20 px-4">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
@@ -348,10 +350,6 @@ export default function App() {
                 <img src="/logo.png" alt="Logo" className="h-16 w-16 mx-auto mb-3 object-contain" />
                 <h3 className="text-xl font-bold text-slate-900">Login Portal ErHa</h3>
                 <p className="text-xs text-slate-500 mt-1">Masukkan akun Admin atau Mentor Anda</p>
-                <div className="mt-3 bg-indigo-50 text-indigo-700 p-3 rounded-xl text-xs text-left space-y-1">
-                  <p><b>Akun Uji Coba Admin:</b> admin@erha.com / admin123</p>
-                  <p><b>Akun Uji Coba Guru:</b> guru@erha.com / guru123</p>
-                </div>
               </div>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
@@ -429,7 +427,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               {adminTab === 'students' && (
                 <div>
                   <div className="flex justify-between items-center mb-6">
@@ -453,7 +451,7 @@ export default function App() {
                       <tbody className="divide-y divide-slate-100">
                         {students.length === 0 ? (
                           <tr>
-                            <td colSpan="6" className="text-center py-6 text-slate-400 text-sm">Belum ada data siswa. (Data dummy: Ahmad Fauzan - SD - Reguler)</td>
+                            <td colSpan="6" className="text-center py-6 text-slate-400 text-sm">Belum ada data siswa.</td>
                           </tr>
                         ) : (
                           students.map((s, idx) => (
@@ -570,7 +568,7 @@ export default function App() {
           </div>
         )}
 
-        {/* 4. PORTAL GURU / MENTOR */}
+        {/* 4. PORTAL GURU / MENTOR (Sesuai Spesifikasi Alur) */}
         {view === 'teacher' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-slate-200 gap-4">
@@ -604,7 +602,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               
               {/* TAB 1: Ringkasan Aktivitas & Profil Singkat Mentor */}
               {teacherTab === 'overview' && (
