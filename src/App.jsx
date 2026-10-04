@@ -41,10 +41,8 @@ export default function App() {
   const [daftarPembayaran, setDaftarPembayaran] = useState([]);
   const [daftarPresensiMentor, setDaftarPresensiMentor] = useState([]);
   const [daftarInventaris, setDaftarInventaris] = useState([]);
-  const [daftarKonten, setDaftarKonten] = useState([]);
 
   // Filter & Pagination States
-  const [filterBulanPresensiSiswa, setFilterBulanPresensiSiswa] = useState('');
   const [filterBulanPresensiMentor, setFilterBulanPresensiMentor] = useState(new Date().toISOString().slice(0, 7));
   const [filterBulanPembayaran, setFilterBulanPembayaran] = useState(new Date().toISOString().slice(0, 7));
   const [currentPagePembayaran, setCurrentPagePembayaran] = useState(1);
@@ -232,7 +230,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 4. HANDLERS - ADMIN (APPROVAL, PRESENSI MENTOR)
+  // 4. HANDLERS - ADMIN (APPROVAL & MENTOR)
   // ==========================================
   const openApproveModal = (siswa) => {
     const pPending = daftarPeriode.find(p => p.siswa_id === siswa.id && p.status_periode === 'pending');
@@ -259,7 +257,6 @@ export default function App() {
         tanggal_selesai: approveData.tanggal_selesai
       }).eq('siswa_id', approveData.siswa_id).eq('status_periode', 'pending');
       
-      // Auto-create initial tagihan
       await supabase.from('pembayaran_siswa').insert([{
         siswa_id: approveData.siswa_id,
         item_bayar: 'Pendaftaran & Paket Awal',
@@ -277,7 +274,6 @@ export default function App() {
     }
   };
 
-  // MENTOR PRESENSI FILTER & CALCULATE
   const filteredPresensiMentor = daftarPresensiMentor.filter(pm => filterBulanPresensiMentor ? pm.tanggal?.startsWith(filterBulanPresensiMentor) : true);
   const totalJamMentorFiltered = filteredPresensiMentor.reduce((sum, pm) => sum + (Number(pm.total_jam) || 0), 0);
 
@@ -290,7 +286,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 5. HANDLERS - PEMBAYARAN & PAGINASI
+  // 5. HANDLERS - PEMBAYARAN & INVENTARIS
   // ==========================================
   const filteredPembayaran = daftarPembayaran.filter(pb => filterBulanPembayaran ? pb.tanggal_pembayaran?.startsWith(filterBulanPembayaran) : true);
   const totalPenerimaanBulanan = filteredPembayaran.reduce((sum, pb) => sum + (Number(pb.jumlah_bayar) || 0), 0);
@@ -334,9 +330,6 @@ export default function App() {
     fetchAllData();
   };
 
-  // ==========================================
-  // 6. HANDLERS - INVENTARIS TRANSAKSI
-  // ==========================================
   const openTransaksiModal = (barang, tipe) => {
     setFormTransaksi({ barang_id: barang.id, nama_barang: barang.nama_barang, tipe_transaksi: tipe, jumlah: 1, keterangan: '' });
     setShowTransaksiModal(true);
@@ -367,7 +360,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 7. HANDLERS - GURU PRESENSI SISWA
+  // 6. HANDLERS - GURU PRESENSI SISWA
   // ==========================================
   const handlePilihSiswaPresensi = (periode) => {
     setSearchSiswaPresensi(`${periode.siswa?.nama_murid} (${periode.paket_belajar?.nama_paket})`);
@@ -408,8 +401,7 @@ export default function App() {
     setSearchSiswaPresensi('');
     fetchAllData();
   };
-
-  // ==========================================
+// ==========================================
   // RENDER UTAMA
   // ==========================================
   if (!appReady) return <div className="min-h-screen flex items-center justify-center font-bold text-[#581878] bg-purple-50">Memuat Portal ErHa...</div>;
@@ -471,7 +463,7 @@ export default function App() {
                     <>
                       {['dashboard','siswa','mentor','pembayaran','modul'].map(tab => (
                         <button key={tab} onClick={() => { setAdminTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition capitalize ${adminTab === tab ? 'bg-purple-900 text-white shadow-lg' : 'text-gray-600 hover:bg-purple-50'}`}>
-                          <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍‍🏫':tab==='pembayaran'?'💵':'📦'}</span> 
+                          <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍🏫':tab==='pembayaran'?'💵':'📦'}</span> 
                           <span>{tab}</span>
                         </button>
                       ))}
@@ -493,9 +485,7 @@ export default function App() {
             {/* DASHBOARD KONTEN UTAMA */}
             <div className="flex-1 overflow-x-hidden space-y-6">
               
-              {/* ======================================================= */}
-              {/* PORTAL ADMIN                                            */}
-              {/* ======================================================= */}
+              {/* PORTAL ADMIN */}
               {userRole === 'admin' && (
                 <>
                   {/* TAB DASHBOARD */}
@@ -592,7 +582,6 @@ export default function App() {
                                       <tr className="bg-gray-50 border-b-2 border-purple-200">
                                         <td colSpan="2" className="p-6">
                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Panel Riwayat Sesi */}
                                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-purple-100">
                                               <h5 className="font-black text-[#581878] mb-3 text-xs uppercase">📖 Riwayat Presensi Periode Ini</h5>
                                               <ul className="space-y-2 text-xs">
@@ -605,7 +594,6 @@ export default function App() {
                                                 {count === 0 && <li className="text-gray-400 italic">Belum ada pertemuan.</li>}
                                               </ul>
                                             </div>
-                                            {/* Panel Riwayat Pembayaran */}
                                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100">
                                               <h5 className="font-black text-emerald-700 mb-3 text-xs uppercase">💵 Riwayat Pembayaran</h5>
                                               <ul className="space-y-2 text-xs">
@@ -642,7 +630,6 @@ export default function App() {
                       
                       {mentorSubTab === 'presensi' && (
                         <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
-                          
                           <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
                             <h3 className="font-black text-purple-900 mb-4">Catat Jam Kerja Mentor</h3>
                             <form onSubmit={handleTambahPresensiMentor} className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -689,7 +676,6 @@ export default function App() {
                   {/* TAB PEMBAYARAN */}
                   {adminTab === 'pembayaran' && (
                     <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
-                      
                       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
                         <h3 className="font-black text-gray-900 mb-4">Form Input Pembayaran</h3>
                         <form onSubmit={handleCatatPembayaran} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -738,7 +724,6 @@ export default function App() {
                         </table>
                       </div>
                       
-                      {/* Paginasi Control */}
                       <div className="flex justify-between items-center text-xs text-gray-500 pt-4 border-t">
                         <span className="font-bold">Halaman {currentPagePembayaran} dari {totalPagesPembayaran || 1}</span>
                         <div className="space-x-2">
@@ -781,9 +766,7 @@ export default function App() {
                 </>
               )}
 
-              {/* ======================================================= */}
-              {/* PORTAL GURU                                             */}
-              {/* ======================================================= */}
+              {/* PORTAL GURU */}
               {userRole === 'guru' && (
                 <>
                   {guruTab === 'beranda' && (
@@ -797,7 +780,7 @@ export default function App() {
                   )}
 
                   {guruTab === 'presensi' && (
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-xl mx-auto space-y-6">
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-xl mx-auto space-y-5">
                       <h3 className="text-xl font-black text-[#581878]">Catat Presensi Kelas Hari Ini</h3>
                       <form onSubmit={handleTambahPresensiSiswa} className="space-y-5">
                         <div className="relative">
@@ -844,12 +827,9 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* ======================================================= */
-          /* LANDING PAGE PUBLIK (SAAS STYLE DENGAN FALLBACK AMAN)   */
-          /* ======================================================= */
+          /* LANDING PAGE PUBLIK */
           <div className="space-y-0 bg-[#FFFDF0]">
             {(() => {
-              // LOGIKA FALLBACK (Super Fallback untuk menghindari blank page)
               let renderSections = landingSections && landingSections.length > 0 
                 ? [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => a.urutan - b.urutan) 
                 : [];
@@ -932,10 +912,6 @@ export default function App() {
         )}
       </main>
 
-      {/* ========================================== */}
-      /* MODAL POPUPS (APPROVAL, TRANSAKSI, EDIT)    */
-      /* ========================================== */}
-      
       {/* MODAL APPROVAL & SETTING PERIODE */}
       {showApproveModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
