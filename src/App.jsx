@@ -19,10 +19,9 @@ export default function App() {
   const [adminTab, setAdminTab] = useState('siswa'); 
   const [siswaSubTab, setSiswaSubTab] = useState('data'); 
   const [mentorSubTab, setMentorSubTab] = useState('daftar'); 
-  const [modulSubTab, setModulSubTab] = useState('data_barang');
   const [guruTab, setGuruTab] = useState('beranda'); 
 
-  // Master Data & Konfigurasi Web (Starter Default)
+  // Master Data & Konfigurasi Web (Starter Default Aman)
   const [paketList, setPaketList] = useState([
     { id: 1, nama_paket: 'Paket Regular SD', deskripsi: 'Bimbingan belajar intensif kurikulum merdeka untuk tingkat Sekolah Dasar (12 Pertemuan).' },
     { id: 2, nama_paket: 'Paket Intensif SMP', deskripsi: 'Pendampingan khusus persiapan ujian, PR, dan pemahaman konsep sains & matematika.' }
@@ -33,18 +32,17 @@ export default function App() {
   const [daftarPresensiSiswa, setDaftarPresensiSiswa] = useState([]);
   const [daftarPembayaran, setDaftarPembayaran] = useState([]);
   const [daftarPresensiMentor, setDaftarPresensiMentor] = useState([]);
-  const [daftarPenggajian, setDaftarPenggajian] = useState([]);
   const [daftarInventaris, setDaftarInventaris] = useState([]);
-  const [daftarTransaksiLogistik, setDaftarTransaksiLogistik] = useState([]);
   const [daftarKonten, setDaftarKonten] = useState([]);
   
-  // Konfigurasi Web & Section Landing Page
+  // Konfigurasi Web & Section Landing Page (Selalu Ada Fallback)
   const [pengaturanWeb, setPengaturanWeb] = useState({ 
     judul_utama: 'Rumah Belajar Ceria Bersama Bimbel ErHa', 
     sub_judul: 'Bimbingan Belajar Ceria, Bersahabat & Berprestasi', 
     logo_url: '', 
     no_admin_wa: '6281915058297' 
   });
+  
   const [landingSections, setLandingSections] = useState([
     { id: 1, section_key: 'hero', nama_section: 'Banner Utama (Hero Section)', urutan: 1, is_aktif: true },
     { id: 2, section_key: 'tracking', nama_section: 'Portal Cek Orang Tua', urutan: 2, is_aktif: true },
@@ -55,8 +53,6 @@ export default function App() {
 
   // UI & Filter States
   const [showLoginModal, setShowLoginModal] = useState(false);
-  
-  // Filter & Paging States Admin
   const [filterBulanPresensi, setFilterBulanPresensi] = useState('');
 
   // Fitur Tracking Publik (Orang Tua)
@@ -156,8 +152,10 @@ export default function App() {
   }
 
   async function fetchPaket() {
-    const { data } = await supabase.from('paket_belajar').select('*').order('created_at', { ascending: true });
-    if (data && data.length > 0) setPaketList(data);
+    try {
+      const { data } = await supabase.from('paket_belajar').select('*').order('created_at', { ascending: true });
+      if (data && data.length > 0) setPaketList(data);
+    } catch(err) { /* Gunakan default starter */ }
   }
 
   async function fetchPengaturanWeb() {
@@ -166,34 +164,40 @@ export default function App() {
       if (settingData) setPengaturanWeb(settingData);
 
       const { data: secData } = await supabase.from('landing_sections').select('*').order('urutan', { ascending: true });
-      if (secData && secData.length > 0) setLandingSections(secData);
-    } catch(err) { /* Gunakan starter default jika tabel belum ada */ }
+      if (secData && secData.length > 0) {
+        setLandingSections(secData);
+      }
+    } catch(err) { 
+      // Tetap gunakan default state jika tabel belum ada di Supabase
+    }
   }
 
   async function fetchAllData() {
-    const [siswa, mentor, periode, presensiS, pemb, presensiM, gaji, logistik, transaksi, konten] = await Promise.all([
-      supabase.from('siswa').select('*').order('created_at', { ascending: false }),
-      supabase.from('mentor').select('*').order('created_at', { ascending: false }),
-      supabase.from('periode_belajar').select('*, siswa(nama_murid, status, no_hp), paket_belajar(nama_paket)').order('created_at', { ascending: false }),
-      supabase.from('presensi_siswa').select('*, mentor(nama_mentor, id), periode_belajar(siswa(id, nama_murid, status), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false }),
-      supabase.from('pembayaran_siswa').select('*, siswa(nama_murid)').order('tanggal_pembayaran', { ascending: false }),
-      supabase.from('presensi_mentor').select('*, mentor(nama_mentor)').order('tanggal', { ascending: false }),
-      supabase.from('penggajian_mentor').select('*, mentor(nama_mentor, honor_per_jam)').order('created_at', { ascending: false }),
-      supabase.from('inventaris_logistik').select('*').order('nama_barang', { ascending: true }),
-      supabase.from('transaksi_logistik').select('*, inventaris_logistik(nama_barang, kategori)').order('created_at', { ascending: false }),
-      supabase.from('konten_publik').select('*, mentor(nama_mentor)').order('created_at', { ascending: false })
-    ]);
+    try {
+      const [siswa, mentor, periode, presensiS, pemb, presensiM, gaji, logistik, konten] = await Promise.all([
+        supabase.from('siswa').select('*').order('created_at', { ascending: false }),
+        supabase.from('mentor').select('*').order('created_at', { ascending: false }),
+        supabase.from('periode_belajar').select('*, siswa(nama_murid, status, no_hp), paket_belajar(nama_paket)').order('created_at', { ascending: false }),
+        supabase.from('presensi_siswa').select('*, mentor(nama_mentor, id), periode_belajar(siswa(id, nama_murid, status), paket_belajar(nama_paket))').order('tanggal_pertemuan', { ascending: false }),
+        supabase.from('pembayaran_siswa').select('*, siswa(nama_murid)').order('tanggal_pembayaran', { ascending: false }),
+        supabase.from('presensi_mentor').select('*, mentor(nama_mentor)').order('tanggal', { ascending: false }),
+        supabase.from('penggajian_mentor').select('*, mentor(nama_mentor, honor_per_jam)').order('created_at', { ascending: false }),
+        supabase.from('inventaris_logistik').select('*').order('nama_barang', { ascending: true }),
+        supabase.from('konten_publik').select('*, mentor(nama_mentor)').order('created_at', { ascending: false })
+      ]);
 
-    if(siswa.data) setDaftarSiswa(siswa.data);
-    if(mentor.data) setDaftarMentor(mentor.data);
-    if(periode.data) setDaftarPeriode(periode.data);
-    if(presensiS.data) setDaftarPresensiSiswa(presensiS.data);
-    if(pemb.data) setDaftarPembayaran(pemb.data);
-    if(presensiM.data) setDaftarPresensiMentor(presensiM.data);
-    if(gaji.data) setDaftarPenggajian(gaji.data);
-    if(logistik.data) setDaftarInventaris(logistik.data);
-    if(transaksi.data) setDaftarTransaksiLogistik(transaksi.data);
-    if(konten.data) setDaftarKonten(konten.data);
+      if(siswa.data) setDaftarSiswa(siswa.data);
+      if(mentor.data) setDaftarMentor(mentor.data);
+      if(periode.data) setDaftarPeriode(periode.data);
+      if(presensiS.data) setDaftarPresensiSiswa(presensiS.data);
+      if(pemb.data) setDaftarPembayaran(pemb.data);
+      if(presensiM.data) setDaftarPresensiMentor(presensiM.data);
+      if(gaji.data) setDaftarPenggajian(gaji.data);
+      if(logistik.data) setDaftarInventaris(logistik.data);
+      if(konten.data) setDaftarKonten(konten.data);
+    } catch(err) {
+      console.error('Error fetching data:', err);
+    }
   }
 
   // ==========================================
@@ -740,7 +744,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* TAB MENTOR (LENGKAP: DAFTAR & DELEGASI, TAMBAH, PRESENSI, PAYROLL) */}
+                {/* TAB MENTOR */}
                 {adminTab === 'mentor' && (
                   <div className="space-y-6">
                     <div className="flex space-x-2 border-b pb-3 overflow-x-auto">
@@ -944,16 +948,24 @@ export default function App() {
           </div>
         ) : (
           /* ======================================================= */
-          /* LANDING PAGE PUBLIK                                     */
+          /* LANDING PAGE PUBLIK (DIJAMIN MUNCUL DENGAN FALLBACK AMAN) */
           /* ======================================================= */
           <div className="space-y-16 pb-20">
             {(() => {
-              const sortedSections = [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => a.urutan - b.urutan);
+              const activeSections = (landingSections && landingSections.length > 0) 
+                ? [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => a.urutan - b.urutan)
+                : [
+                    { id: 1, section_key: 'hero' },
+                    { id: 2, section_key: 'tracking' },
+                    { id: 3, section_key: 'paket' },
+                    { id: 4, section_key: 'konten' },
+                    { id: 5, section_key: 'pendaftaran' }
+                  ];
 
-              return sortedSections.map(sec => {
+              return activeSections.map(sec => {
                 if (sec.section_key === 'hero') {
                   return (
-                    <section key={sec.id} className="bg-gradient-to-b from-[#581878] via-[#6B21A8] to-[#FFFDF0] text-white pt-16 pb-24 px-4 text-center">
+                    <section key={sec.id || 'hero'} className="bg-gradient-to-b from-[#581878] via-[#6B21A8] to-[#FFFDF0] text-white pt-16 pb-24 px-4 text-center">
                       <div className="max-w-4xl mx-auto">
                         <span className="inline-block bg-[#F59E0B] text-white text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider mb-6 shadow">Bimbingan Belajar Ceria & Berprestasi 🚀</span>
                         <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-tight mb-6">{pengaturanWeb.judul_utama}</h2>
@@ -965,7 +977,7 @@ export default function App() {
 
                 if (sec.section_key === 'tracking') {
                   return (
-                    <section key={sec.id} className="max-w-3xl mx-auto px-4 -mt-14 relative z-20">
+                    <section key={sec.id || 'tracking'} className="max-w-3xl mx-auto px-4 -mt-14 relative z-20">
                       <div className="bg-white rounded-3xl shadow-xl border-4 border-purple-200 p-8">
                         <h3 className="text-xl font-black text-[#581878] mb-2 text-center">🔍 Portal Cek Kehadiran Orang Tua</h3>
                         <p className="text-xs text-gray-500 text-center mb-6">Masukkan <strong>Nama Lengkap Siswa</strong> atau <strong>No WhatsApp Wali</strong> untuk melihat presensi.</p>
@@ -991,7 +1003,7 @@ export default function App() {
 
                 if (sec.section_key === 'paket') {
                   return (
-                    <section key={sec.id} className="max-w-6xl mx-auto px-4">
+                    <section key={sec.id || 'paket'} className="max-w-6xl mx-auto px-4">
                       <h3 className="text-3xl font-black text-center text-[#581878] mb-10">Pilihan Program Belajar</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {paketList.map((paket) => {
@@ -1011,7 +1023,7 @@ export default function App() {
 
                 if (sec.section_key === 'konten') {
                   return (
-                    <section key={sec.id} className="max-w-6xl mx-auto px-4">
+                    <section key={sec.id || 'konten'} className="max-w-6xl mx-auto px-4">
                       <h3 className="text-3xl font-black text-center text-[#581878] mb-10">Artikel & Video Edukasi</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {(daftarKonten || []).map(k => (
@@ -1029,13 +1041,13 @@ export default function App() {
 
                 if (sec.section_key === 'pendaftaran') {
                   return (
-                    <section key={sec.id} className="max-w-3xl mx-auto px-4">
+                    <section key={sec.id || 'pendaftaran'} className="max-w-3xl mx-auto px-4">
                       <div className="bg-white rounded-[2rem] shadow-2xl p-8 md:p-12 border-4 border-white">
                         <div className="text-center mb-8"><h3 className="text-3xl font-black text-[#581878] mb-2">Pendaftaran Siswa Baru</h3></div>
                         <form onSubmit={handleDaftarSubmit} className="space-y-4">
                           <input type="text" placeholder="Nama Lengkap Murid" required value={formDaftar.nama_murid} onChange={e => setFormDaftar({...formDaftar, nama_murid: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" />
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input type="text" placeholder="Nama Wali" required value={formDaftar.nama_orang_tua} onChange={e => setFormDaftar({...formDaftar, nama_orang_tua: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" />
+                            <input type="text" placeholder="Nama Wali" required value={formDaftar.nama_orang_tua} onChange={e => setFormDaftar({...formDaffar, nama_orang_tua: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" />
                             <input type="tel" placeholder="No WhatsApp" required value={formDaftar.no_hp} onChange={e => setFormDaftar({...formDaftar, no_hp: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" />
                           </div>
                           <textarea placeholder="Alamat Domisili" required value={formDaftar.alamat} onChange={e => setFormDaftar({...formDaftar, alamat: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" rows="2" />
