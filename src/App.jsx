@@ -9,8 +9,8 @@ import {
 // ==========================================
 // KONFIGURASI SUPABASE (Sesuaikan kredensial Anda)
 // ==========================================
-const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+const SUPABASE_URL = 'https://your-supabase-url.supabase.co';
+const SUPABASE_ANON_KEY = 'your-supabase-anon-key';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default function App() {
@@ -1423,4 +1423,123 @@ export default function App() {
                       <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Status Kehadiran</label>
                       <select 
                         value={attendanceForm.status}
-                        onChange={(e) => setAttendanceForm({...attendanceForm, status: e.
+                        onChange={(e) => setAttendanceForm({...attendanceForm, status: e.target.value})}
+                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      >
+                        <option value="Hadir">Hadir</option>
+                        <option value="Izin">Izin</option>
+                        <option value="Alpha">Alpha</option>
+                        <option value="Kelas Pengganti">Kelas Pengganti (Makeup Class)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Jurnal Materi Pembelajaran</label>
+                      <textarea 
+                        rows="4" 
+                        required
+                        value={attendanceForm.journal}
+                        onChange={(e) => setAttendanceForm({...attendanceForm, journal: e.target.value})}
+                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                        placeholder="Detail materi yang diajarkan, latihan soal yang dibahas, dan catatan perkembangan siswa..."
+                      ></textarea>
+                    </div>
+                    <button type="submit" className="w-full bg-indigo-600 text-white font-bold px-6 py-4 rounded-xl text-sm md:text-base hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/20">
+                      Simpan Data Pertemuan
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {teacherTab === 'modules' && (
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Pustaka Materi Ajar</h3>
+                  <p className="text-sm text-slate-500 mb-8">Unduh modul berformat PDF sebagai referensi pengajaran.</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[
+                      { title: "Modul Matematika SD Kelas 6", desc: "Materi aritmatika dan geometri." },
+                      { title: "Modul Fisika SMP Kelas 9", desc: "Kelistrikan dan gaya magnet." },
+                      { title: "Modul UTBK SNBT Saintek", desc: "Kumpulan soal penalaran kuantitatif." }
+                    ].map((mod, idx) => (
+                      <div key={idx} className="border border-slate-200 rounded-3xl p-6 bg-slate-50 flex flex-col justify-between hover:border-indigo-300 transition group">
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <BookOpen className="text-indigo-600" size="{16}"/>
+                            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Modul Referensi</span>
+                          </div>
+                          <h4 className="font-bold text-base text-slate-900">{mod.title}</h4>
+                          <p className="text-sm text-slate-500 mt-2">{mod.desc}</p>
+                        </div>
+                        <button className="mt-6 w-full bg-white border border-indigo-200 text-indigo-700 font-bold py-2.5 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition text-sm">
+                          Unduh PDF
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {teacherTab === 'profile' && (
+                <div className="max-w-md">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Keamanan Akun</h3>
+                  <p className="text-sm text-slate-500 mb-8">Perbarui kata sandi portal mentor Anda di bawah ini.</p>
+                  
+                  <form onSubmit={handleChangePassword} className="space-y-5 bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Password Saat Ini</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={passForm.oldPass}
+                        onChange={(e) => setPassForm({...passForm, oldPass: e.target.value})}
+                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Password Baru</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={passForm.newPass}
+                        onChange={(e) => setPassForm({...passForm, newPass: e.target.value})}
+                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Ulangi Password Baru</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={passForm.confirmPass}
+                        onChange={(e) => setPassForm({...passForm, confirmPass: e.target.value})}
+                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <button type="submit" className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl text-sm hover:bg-slate-900 transition mt-2">
+                      Perbarui Kata Sandi
+                    </button>
+                  </form>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* FOOTER */}
+      <footer className="bg-white border-t border-slate-200 py-8 mt-12">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-sm text-slate-500 font-medium">
+            &copy; {new Date().getFullYear()} <span className="text-indigo-700 font-bold">Bimbel ErHa</span> (Rumah Hebat). Seluruh Hak Cipta Dilindungi.
+          </p>
+        </div>
+      </footer>
+
+    </div>
+  );
+}
