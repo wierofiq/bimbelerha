@@ -47,28 +47,25 @@ export default function App() {
 
   // UI & Filter States
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showEditPasswordModal, setShowEditPasswordModal] = useState(false);
   const [expandedSiswaId, setExpandedSiswaId] = useState(null);
   
-  // Filter & Paging States
+  // Filter & Paging States Admin
   const [filterBulanPresensi, setFilterBulanPresensi] = useState('');
   const [filterMentorPresensi, setFilterMentorPresensi] = useState('');
   const [searchSiswaBayar, setSearchSiswaBayar] = useState('');
-  
-  // State untuk Rekap Pembayaran (Admin)
   const [filterBulanPembayaran, setFilterBulanPembayaran] = useState(new Date().toISOString().slice(0, 7));
   const [currentPagePembayaran, setCurrentPagePembayaran] = useState(1);
 
-  // Fitur Tracking Publik (Orang Tua - Berdasarkan Nama atau No HP)
+  // Fitur Tracking Publik (Orang Tua)
   const [trackingQuery, setTrackingQuery] = useState('');
   const [trackingResult, setTrackingResult] = useState(null);
   const [trackingError, setTrackingError] = useState('');
 
-  // Fitur Presensi Guru (Filter & Auto Increment)
+  // Fitur Presensi Guru
   const [searchSiswaPresensi, setSearchSiswaPresensi] = useState(''); 
   const [isDropdownPresensiOpen, setIsDropdownPresensiOpen] = useState(false);
 
-  // Modals Data
+  // Modals Data Admin
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approveData, setApproveData] = useState({ siswa_id: '', nama_murid: '', bulan_periode: '', tanggal_mulai: '', tanggal_selesai: '' });
 
@@ -79,17 +76,15 @@ export default function App() {
   const [showEditPembayaranModal, setShowEditPembayaranModal] = useState(false);
   const [editPembayaranData, setEditPembayaranData] = useState({ id: '', total_bayar: 0, tanggal_pembayaran: '', catatan: '', item_bayar: '' });
 
-  // Form States
+  // Form States Auth & Pendaftaran
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [newPasswordGuru, setNewPasswordGuru] = useState('');
 
-  // Pendaftaran Public
   const [formDaftar, setFormDaftar] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK' });
   const [selectedPaket, setSelectedPaket] = useState([]);
 
-  // Pendaftaran Manual Admin
+  // Form Admin
   const [formSiswaManual, setFormSiswaManual] = useState({ 
     nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK',
     bulan_periode: new Date().toISOString().slice(0, 7),
@@ -107,11 +102,10 @@ export default function App() {
   const paymentItemOptions = ['Pendaftaran', 'Bulanan', 'Buku', 'Seragam', 'Lainnya', 'Paket Belajar Bulanan'];
   const [newPresensiSiswa, setNewPresensiSiswa] = useState({ periode_id: '', pertemuan_ke: 1, tanggal_pertemuan: new Date().toISOString().split('T')[0], status_kehadiran: 'Hadir', jurnal_materi: '' });
   
-  // Form Konten Publik
   const [formKonten, setFormKonten] = useState({ judul: '', tipe: 'artikel', isi: '', video_url: '' });
 
   // ==========================================
-  // UTILS (FORMAT TANGGAL)
+  // UTILS
   // ==========================================
   const formatTanggalIndo = (dateStr) => {
     if (!dateStr) return '-';
@@ -120,7 +114,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 2. EFFECTS & DATA FETCHING
+  // EFFECTS & DATA FETCHING
   // ==========================================
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -162,18 +156,14 @@ export default function App() {
 
   async function fetchPaket() {
     const { data } = await supabase.from('paket_belajar').select('*').order('created_at', { ascending: true });
-    if (data && data.length > 0) {
-      setPaketList(data);
-    }
+    if (data && data.length > 0) setPaketList(data);
   }
 
   async function fetchPengaturanWeb() {
     try {
       const { data: settingData } = await supabase.from('pengaguran_web').select('*').eq('id', 1).single();
       if (settingData) setPengaturanWeb(settingData);
-    } catch(err) {
-      // Abaikan jika tabel belum ada, gunakan default starter
-    }
+    } catch(err) { /* abaikan jika tabel belum ada */ }
   }
 
   async function fetchAllData() {
@@ -203,7 +193,7 @@ export default function App() {
   }
 
   // ==========================================
-  // 3. HANDLERS - AUTH
+  // HANDLERS - AUTH
   // ==========================================
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -216,16 +206,8 @@ export default function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setUserRole('guru'); setCurrentMentorProfile(null); };
 
-  const handleGantiPasswordGuru = async (e) => {
-    e.preventDefault();
-    if (!newPasswordGuru || newPasswordGuru.length < 6) return alert('Password minimal 6 karakter!');
-    const { error } = await supabase.auth.updateUser({ password: newPasswordGuru });
-    if (error) alert('Gagal mengubah password: ' + error.message);
-    else { alert('✅ Password berhasil diperbarui!'); setShowEditPasswordModal(false); setNewPasswordGuru(''); }
-  };
-
   // ==========================================
-  // 4. HANDLERS - ADMIN & WEB SETUP
+  // HANDLERS - ADMIN & WEB SETUP
   // ==========================================
   const handleSimpanPengaturanWeb = async (e) => {
     e.preventDefault();
@@ -577,7 +559,9 @@ export default function App() {
       <main className="flex-grow">
         {user ? (
           <div className="max-w-7xl mx-auto px-4 py-8">
-            {/* PORTAL ADMIN */}
+            {/* ======================================================= */}
+            {/* PORTAL ADMIN (DENGAN KELENGKAPAN SUB-MENU & AKSI)       */}
+            {/* ======================================================= */}
             {userRole === 'admin' && (
               <div>
                 <div className="flex overflow-x-auto border-b-2 border-purple-200 mb-6 space-x-2 pb-1">
@@ -585,42 +569,64 @@ export default function App() {
                   <button onClick={() => setAdminTab('mentor')} className={`py-2.5 px-5 font-extrabold rounded-t-xl text-sm whitespace-nowrap ${adminTab === 'mentor' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>👩‍🏫 MENTOR</button>
                   <button onClick={() => setAdminTab('pembayaran')} className={`py-2.5 px-5 font-extrabold rounded-t-xl text-sm whitespace-nowrap ${adminTab === 'pembayaran' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>💵 PEMBAYARAN</button>
                   <button onClick={() => setAdminTab('modul')} className={`py-2.5 px-5 font-extrabold rounded-t-xl text-sm whitespace-nowrap ${adminTab === 'modul' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>📚 INVENTARIS</button>
-                  <button onClick={() => setAdminTab('setup_web')} className={`py-2.5 px-5 font-extrabold rounded-t-xl text-sm whitespace-nowrap ${adminTab === 'setup_web' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>⚙️ SETUP WEB</button>
+                  <button onClick={() => setAdminTab('setup_web')} className={`py-2.5 px-5 font-extrabold rounded-t-xl text-sm whitespace-nowrap ${adminTab === 'setup_web' ? 'bg-[#581878] text-white' : 'bg-white text-gray-600'}`}>⚙️ SETUP & KONTEN</button>
                 </div>
 
-                {/* TAB SETUP WEB */}
+                {/* TAB SETUP WEB & KONTEN */}
                 {adminTab === 'setup_web' && (
-                  <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100 max-w-2xl mx-auto">
-                    <h3 className="text-lg font-bold text-[#581878] mb-4">Live Edit Pengaturan Halaman Utama</h3>
-                    <form onSubmit={handleSimpanPengaturanWeb} className="space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-gray-600 block mb-1">Judul Utama:</label>
-                        <input type="text" value={pengaturanWeb.judul_utama} onChange={e => setPengaturanWeb({...pengaturanWeb, judul_utama: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100 max-w-2xl mx-auto">
+                      <h3 className="text-lg font-bold text-[#581878] mb-4">Live Edit Pengaturan Halaman Utama</h3>
+                      <form onSubmit={handleSimpanPengaturanWeb} className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">Judul Utama:</label>
+                          <input type="text" value={pengaturanWeb.judul_utama} onChange={e => setPengaturanWeb({...pengaturanWeb, judul_utama: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">Sub-Judul:</label>
+                          <input type="text" value={pengaturanWeb.sub_judul} onChange={e => setPengaturanWeb({...pengaturanWeb, sub_judul: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">URL Logo Web:</label>
+                          <input type="text" value={pengaturanWeb.logo_url} onChange={e => setPengaturanWeb({...pengaturanWeb, logo_url: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">No WhatsApp Admin:</label>
+                          <input type="text" value={pengaturanWeb.no_admin_wa} onChange={e => setPengaturanWeb({...pengaturanWeb, no_admin_wa: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        </div>
+                        <button type="submit" className="w-full bg-[#581878] text-white font-bold py-3 rounded-xl shadow">Simpan Perubahan</button>
+                      </form>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-purple-100 max-w-2xl mx-auto">
+                      <h3 className="text-lg font-bold text-[#581878] mb-4">Publikasi Artikel & Video Edukasi</h3>
+                      <form onSubmit={handleSimpanKonten} className="space-y-4">
+                        <input type="text" placeholder="Judul Artikel / Video" required value={formKonten.judul} onChange={e => setFormKonten({...formKonten, judul: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        <select value={formKonten.tipe} onChange={e => setFormKonten({...formKonten, tipe: e.target.value})} className="border p-3 rounded-xl w-full text-sm bg-white font-bold"><option value="artikel">📝 Artikel</option><option value="video">🎥 Video YouTube</option></select>
+                        <input type="text" placeholder="URL Video YouTube" value={formKonten.video_url} onChange={e => setFormKonten({...formKonten, video_url: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                        <textarea placeholder="Isi Konten..." required value={formKonten.isi} onChange={e => setFormKonten({...formKonten, isi: e.target.value})} className="border p-3 rounded-xl w-full text-sm" rows="3" />
+                        <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow">Terbitkan Konten</button>
+                      </form>
+                      <div className="mt-6 space-y-3">
+                        {daftarKonten.map(k => (
+                          <div key={k.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border">
+                            <div><span className="font-bold text-[#581878]">{k.judul}</span><span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded ml-2 uppercase">{k.tipe}</span></div>
+                            <button onClick={() => handleHapusKonten(k.id)} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Hapus</button>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <label className="text-xs font-bold text-gray-600 block mb-1">Sub-Judul:</label>
-                        <input type="text" value={pengaturanWeb.sub_judul} onChange={e => setPengaturanWeb({...pengaturanWeb, sub_judul: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-gray-600 block mb-1">URL Logo Web:</label>
-                        <input type="text" value={pengaturanWeb.logo_url} onChange={e => setPengaturanWeb({...pengaturanWeb, logo_url: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-gray-600 block mb-1">No WhatsApp Admin:</label>
-                        <input type="text" value={pengaturanWeb.no_admin_wa} onChange={e => setPengaturanWeb({...pengaturanWeb, no_admin_wa: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
-                      </div>
-                      <button type="submit" className="w-full bg-[#581878] text-white font-bold py-3 rounded-xl shadow">Simpan Perubahan</button>
-                    </form>
+                    </div>
                   </div>
                 )}
 
                 {/* TAB SISWA */}
                 {adminTab === 'siswa' && (
                   <div className="space-y-6">
-                    <div className="flex space-x-2 border-b pb-3">
-                      <button onClick={() => setSiswaSubTab('persetujuan')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'persetujuan' ? 'bg-amber-400 text-purple-950' : 'bg-white'}`}>Persetujuan Baru</button>
-                      <button onClick={() => setSiswaSubTab('data')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'data' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Data & Bar Progress</button>
-                      <button onClick={() => setSiswaSubTab('tambah_manual')} className={`px-4 py-2 rounded-lg font-bold text-xs ${siswaSubTab === 'tambah_manual' ? 'bg-purple-900 text-white' : 'bg-white'}`}>+ Tambah Manual</button>
+                    <div className="flex space-x-2 border-b pb-3 overflow-x-auto">
+                      <button onClick={() => setSiswaSubTab('persetujuan')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'persetujuan' ? 'bg-amber-400 text-purple-950' : 'bg-white'}`}>Persetujuan Baru</button>
+                      <button onClick={() => setSiswaSubTab('data')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'data' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Data & Bar Progress</button>
+                      <button onClick={() => setSiswaSubTab('tambah_manual')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'tambah_manual' ? 'bg-purple-900 text-white' : 'bg-white'}`}>+ Tambah Manual</button>
+                      <button onClick={() => setSiswaSubTab('presensi')} className={`px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap ${siswaSubTab === 'presensi' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Rekap Presensi</button>
                     </div>
 
                     {siswaSubTab === 'persetujuan' && (
@@ -632,6 +638,9 @@ export default function App() {
                             {daftarSiswa.filter(s => s.status === 'pending').map(s => (
                               <tr key={s.id} className="border-b"><td className="p-3 font-bold">{s.nama_murid}</td><td className="p-3">{s.nama_orang_tua}</td><td className="p-3 text-center"><button onClick={() => openApproveModal(s)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold">✓ Setujui</button></td></tr>
                             ))}
+                            {daftarSiswa.filter(s => s.status === 'pending').length === 0 && (
+                              <tr><td colSpan="3" className="text-center p-6 text-gray-400 italic">Tidak ada pendaftaran pending.</td></tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
@@ -661,7 +670,10 @@ export default function App() {
 
                     {siswaSubTab === 'data' && (
                       <div className="bg-white rounded-2xl p-6 shadow-md border">
-                        <h3 className="text-lg font-bold text-[#581878] mb-4">Data Siswa Aktif & Progress Sesi 12 Pertemuan</h3>
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-bold text-[#581878]">Data Siswa Aktif & Progress Sesi 12 Pertemuan</h3>
+                          <button onClick={() => window.print()} className="bg-gray-800 text-white text-xs font-bold px-4 py-2 rounded-xl">🖨️ Cetak PDF</button>
+                        </div>
                         <table className="w-full text-left text-sm">
                           <thead className="bg-purple-50"><tr><th className="p-3">Siswa & Progress</th><th className="p-3 text-center">Aksi</th></tr></thead>
                           <tbody>
@@ -676,7 +688,7 @@ export default function App() {
                                     <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${percent}%` }}></div></div>
                                   </td>
                                   <td className="p-3 text-center space-x-1">
-                                    {count >= 12 && <button onClick={() => handleRolloverPeriode(periodeAktif)} className="bg-amber-500 text-white px-2 py-1 rounded text-xs font-bold">Rollover</button>}
+                                    {count >= 12 && <button onClick={() => handleRolloverPeriode(periodeAktif)} className="bg-amber-500 text-white px-2 py-1 rounded text-xs font-bold animate-bounce">Rollover</button>}
                                     <button onClick={() => openEditSiswaModal(s)} className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">Edit</button>
                                     <button onClick={() => handleHapusSiswa(s.id, s.nama_murid)} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Hapus</button>
                                   </td>
@@ -687,44 +699,115 @@ export default function App() {
                         </table>
                       </div>
                     )}
+
+                    {siswaSubTab === 'presensi' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-bold text-[#581878]">Rekap Presensi Siswa Global</h3>
+                          <input type="month" value={filterBulanPresensi} onChange={e => setFilterBulanPresensi(e.target.value)} className="border px-3 py-1.5 rounded-xl text-sm" />
+                        </div>
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-purple-50"><tr><th className="p-3">Tanggal</th><th className="p-3">Siswa</th><th className="p-3">Mentor</th><th className="p-3">Sesi</th><th className="p-3">Jurnal</th></tr></thead>
+                          <tbody>
+                            {daftarPresensiSiswa.filter(ps => filterBulanPresensi ? ps.tanggal_pertemuan?.startsWith(filterBulanPresensi) : true).map(ps => (
+                              <tr key={ps.id} className="border-b">
+                                <td className="p-3">{formatTanggalIndo(ps.tanggal_pertemuan)}</td>
+                                <td className="p-3 font-bold">{ps.periode_belajar?.siswa?.nama_murid}</td>
+                                <td className="p-3 text-purple-900 font-bold">{ps.mentor?.nama_mentor}</td>
+                                <td className="p-3 text-center font-bold">{ps.pertemuan_ke}</td>
+                                <td className="p-3 text-gray-600">{ps.jurnal_materi}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* TAB MENTOR */}
                 {adminTab === 'mentor' && (
-                  <div className="bg-white rounded-2xl p-6 shadow-md border">
-                    <h3 className="text-lg font-bold text-[#581878] mb-4">Manajemen Mentor & Delegasi</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {daftarMentor.map(m => (
-                        <div key={m.id} className="border p-4 rounded-xl bg-gray-50 flex justify-between items-center">
-                          <div>
-                            <h5 className="font-bold">{m.nama_mentor}</h5>
-                            <p className="text-xs text-gray-500">{m.email}</p>
-                          </div>
-                          <div className="space-y-1 text-right">
-                            <label className="text-[10px] font-bold block"><input type="checkbox" checked={!!m.akses_inventaris} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_inventaris', m.akses_inventaris)} className="mr-1" /> Inv</label>
-                            <label className="text-[10px] font-bold block"><input type="checkbox" checked={!!m.akses_konten} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_konten', m.akses_konten)} className="mr-1" /> Konten</label>
-                          </div>
-                        </div>
-                      ))}
+                  <div className="space-y-6">
+                    <div className="flex space-x-2 border-b pb-3">
+                      <button onClick={() => setMentorSubTab('daftar')} className={`px-4 py-2 rounded-lg font-bold text-xs ${mentorSubTab === 'daftar' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Daftar & Delegasi</button>
+                      <button onClick={() => setMentorSubTab('tambah')} className={`px-4 py-2 rounded-lg font-bold text-xs ${mentorSubTab === 'tambah' ? 'bg-purple-900 text-white' : 'bg-white'}`}>+ Tambah Mentor</button>
+                      <button onClick={() => setMentorSubTab('penggajian')} className={`px-4 py-2 rounded-lg font-bold text-xs ${mentorSubTab === 'penggajian' ? 'bg-purple-900 text-white' : 'bg-white'}`}>Hitung Payroll</button>
                     </div>
+
+                    {mentorSubTab === 'daftar' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border">
+                        <h3 className="text-lg font-bold text-[#581878] mb-4">Manajemen Mentor & Hak Delegasi</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {daftarMentor.map(m => (
+                            <div key={m.id} className="border p-4 rounded-xl bg-gray-50 flex justify-between items-center">
+                              <div><h5 className="font-bold">{m.nama_mentor}</h5><p className="text-xs text-gray-500">{m.email}</p></div>
+                              <div className="space-y-1 text-right">
+                                <label className="text-[10px] font-bold block"><input type="checkbox" checked={!!m.akses_inventaris} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_inventaris', m.akses_inventaris)} className="mr-1" /> Inv</label>
+                                <label className="text-[10px] font-bold block"><input type="checkbox" checked={!!m.akses_konten} onChange={() => handleToggleDelegasiMentor(m.id, 'akses_konten', m.akses_konten)} className="mr-1" /> Konten</label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {mentorSubTab === 'tambah' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border max-w-xl mx-auto">
+                        <h3 className="text-lg font-bold text-[#581878] mb-4">Pendaftaran Mentor Baru</h3>
+                        <form onSubmit={handleTambahMentor} className="space-y-4">
+                          <input type="text" placeholder="Nama Lengkap" required value={newMentor.nama_mentor} onChange={e => setNewMentor({...newMentor, nama_mentor: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="email" placeholder="Email Login" required value={newMentor.email} onChange={e => setNewMentor({...newMentor, email: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="password" placeholder="Password (Min 6 karakter)" required value={newMentor.password} onChange={e => setNewMentor({...newMentor, password: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="text" placeholder="No WhatsApp" required value={newMentor.no_hp} onChange={e => setNewMentor({...newMentor, no_hp: e.target.value})} className="border p-3 rounded-xl w-full text-sm" />
+                          <input type="number" placeholder="Tarif Honor per Jam" required value={newMentor.honor_per_jam} onChange={e => setNewMentor({...newMentor, honor_per_jam: Number(e.target.value)})} className="border p-3 rounded-xl w-full text-sm bg-amber-50 font-bold" />
+                          <button type="submit" className="w-full bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Simpan Mentor</button>
+                        </form>
+                      </div>
+                    )}
+
+                    {mentorSubTab === 'penggajian' && (
+                      <div className="bg-white rounded-2xl p-6 shadow-md border space-y-4">
+                        <h3 className="text-lg font-bold text-[#581878]">Kalkulator Payroll / Gaji</h3>
+                        <form onSubmit={handleSimpanGaji} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
+                          <select required value={formGaji.mentor_id} onChange={e => setFormGaji({...formGaji, mentor_id: e.target.value})} className="border p-3 rounded-xl bg-white text-sm"><option value="">-- Pilih Mentor --</option>{daftarMentor.map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}</select>
+                          <input type="month" required value={formGaji.bulan_periode} onChange={e => setFormGaji({...formGaji, bulan_periode: e.target.value})} className="border p-3 rounded-xl text-sm" />
+                          <button type="submit" className="bg-emerald-600 text-white py-3 rounded-xl font-bold shadow">Generate Slip Gaji</button>
+                        </form>
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-purple-50"><tr><th className="p-3">Periode</th><th className="p-3">Mentor</th><th className="p-3">Jam</th><th className="p-3">Total Gaji</th><th className="p-3 text-center">Status</th></tr></thead>
+                          <tbody>
+                            {daftarPenggajian.map(g => (
+                              <tr key={g.id} className="border-b"><td className="p-3">{g.bulan_periode}</td><td className="p-3 font-bold">{g.mentor?.nama_mentor}</td><td className="p-3 text-center">{g.total_jam_mengajar} Jam</td><td className="p-3 font-extrabold text-emerald-600">Rp {(g.total_jam_mengajar * g.honor_per_jam).toLocaleString('id-ID')}</td><td className="p-3 text-center"><span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs uppercase">{g.status_pembayaran}</span></td></tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* TAB PEMBAYARAN */}
                 {adminTab === 'pembayaran' && (
-                  <div className="bg-white rounded-2xl p-6 shadow-md border">
-                    <h3 className="text-lg font-bold text-[#581878] mb-4">Rekap Pembayaran & Keuangan</h3>
-                    <form onSubmit={handleCatatPembayaran} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-gray-50 p-4 rounded-xl">
+                  <div className="bg-white rounded-2xl p-6 shadow-md border space-y-6">
+                    <h3 className="text-lg font-bold text-[#581878]">Catat Penerimaan Pembayaran</h3>
+                    <form onSubmit={handleCatatPembayaran} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border">
                       <select required value={formPembayaran.siswa_id} onChange={e => setFormPembayaran({...formPembayaran, siswa_id: e.target.value})} className="border p-3 rounded-xl text-sm bg-white"><option value="">-- Pilih Siswa --</option>{daftarSiswa.map(s => <option key={s.id} value={s.id}>{s.nama_murid}</option>)}</select>
                       <input type="number" placeholder="Nominal (Rp)" required value={formPembayaran.total_bayar} onChange={e => setFormPembayaran({...formPembayaran, total_bayar: Number(e.target.value)})} className="border p-3 rounded-xl text-sm font-bold bg-emerald-50 text-emerald-800" />
-                      <button type="submit" className="bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Catat Pembayaran</button>
+                      <div className="md:col-span-2 border p-3 rounded-xl bg-white">
+                        <p className="text-xs font-bold mb-2">Item Pembayaran:</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {paymentItemOptions.map(item => (
+                            <label key={item} className="text-xs flex items-center"><input type="checkbox" className="mr-1.5" onChange={e => e.target.checked ? setFormPembayaran({...formPembayaran, items: [...formPembayaran.items, item]}) : setFormPembayaran({...formPembayaran, items: formPembayaran.items.filter(i => i !== item)}) } /> {item}</label>
+                          ))}
+                        </div>
+                      </div>
+                      <button type="submit" className="md:col-span-2 bg-[#581878] text-white py-3 rounded-xl font-bold shadow">Simpan Pembayaran</button>
                     </form>
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-purple-50"><tr><th className="p-3">Tanggal</th><th className="p-3">Siswa</th><th className="p-3">Nominal</th><th className="p-3 text-center">Aksi</th></tr></thead>
+                      <thead className="bg-purple-50"><tr><th className="p-3">Tanggal</th><th className="p-3">Siswa</th><th className="p-3">Item</th><th className="p-3">Nominal</th><th className="p-3 text-center">Aksi</th></tr></thead>
                       <tbody>
                         {daftarPembayaran.map(pb => (
-                          <tr key={pb.id} className="border-b"><td className="p-3">{formatTanggalIndo(pb.tanggal_pembayaran)}</td><td className="p-3 font-bold">{pb.siswa?.nama_murid}</td><td className="p-3 text-emerald-600 font-bold">Rp {Number(pb.jumlah_bayar).toLocaleString('id-ID')}</td><td className="p-3 text-center"><button onClick={() => handleHapusPembayaran(pb.id)} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">Hapus</button></td></tr>
+                          <tr key={pb.id} className="border-b"><td className="p-3">{formatTanggalIndo(pb.tanggal_pembayaran)}</td><td className="p-3 font-bold">{pb.siswa?.nama_murid}</td><td className="p-3">{pb.item_bayar}</td><td className="p-3 text-emerald-600 font-bold">Rp {Number(pb.jumlah_bayar).toLocaleString('id-ID')}</td><td className="p-3 text-center"><button onClick={() => handleHapusPembayaran(pb.id)} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">Hapus</button></td></tr>
                         ))}
                       </tbody>
                     </table>
@@ -736,7 +819,9 @@ export default function App() {
               </div>
             )}
 
-            {/* PORTAL GURU */}
+            {/* ======================================================= */}
+            {/* PORTAL GURU                                             */}
+            {/* ======================================================= */}
             {userRole === 'guru' && (
               <div className="space-y-6">
                 <div className="flex border-b pb-2 space-x-2">
@@ -794,23 +879,17 @@ export default function App() {
           </div>
         ) : (
           /* ======================================================= */
-          /* 🌍 PUBLIC LANDING PAGE (DIJAMIN MUNCUL STABIL)         */
+          /* LANDING PAGE PUBLIK                                     */
           /* ======================================================= */
           <div className="space-y-16 pb-20">
-            {/* HERO SECTION */}
             <section className="bg-gradient-to-b from-[#581878] via-[#6B21A8] to-[#FFFDF0] text-white pt-16 pb-24 px-4 text-center">
               <div className="max-w-4xl mx-auto">
-                <span className="inline-block bg-[#F59E0B] text-white text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider mb-6 shadow">
-                  Bimbingan Belajar Ceria & Berprestasi 🚀
-                </span>
-                <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-tight mb-6">
-                  {pengaturanWeb.judul_utama}
-                </h2>
+                <span className="inline-block bg-[#F59E0B] text-white text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider mb-6 shadow">Bimbingan Belajar Ceria & Berprestasi 🚀</span>
+                <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-tight mb-6">{pengaturanWeb.judul_utama}</h2>
                 <p className="text-lg text-purple-200">{pengaturanWeb.sub_judul}</p>
               </div>
             </section>
 
-            {/* PORTAL ORANG TUA (TRACKING) */}
             <section className="max-w-3xl mx-auto px-4 -mt-14 relative z-20">
               <div className="bg-white rounded-3xl shadow-xl border-4 border-purple-200 p-8">
                 <h3 className="text-xl font-black text-[#581878] mb-2 text-center">🔍 Portal Cek Kehadiran Orang Tua</h3>
@@ -826,39 +905,20 @@ export default function App() {
                     <div className="bg-purple-50 p-4 rounded-xl">
                       <h4 className="font-extrabold text-[#581878] text-base">{trackingResult.siswa.nama_murid}</h4>
                       <p className="text-xs text-gray-600">Wali: {trackingResult.siswa.nama_orang_tua} | Status: <span className="text-emerald-600 font-bold uppercase">{trackingResult.siswa.status}</span></p>
-                      {trackingResult.periode && (
-                        <p className="text-xs text-gray-500 mt-1">Periode Aktif: {trackingResult.periode.bulan_periode} ({trackingResult.presensi.length}/12 Sesi Terlaksana)</p>
-                      )}
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-2">
-                      <h5 className="font-bold text-xs text-gray-700">Riwayat Presensi Terbaru:</h5>
-                      {trackingResult.presensi.map(ps => (
-                        <div key={ps.id} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
-                          <span>✅ {formatTanggalIndo(ps.tanggal_pertemuan)} (Sesi {ps.pertemuan_ke})</span>
-                          <span className="text-gray-500">{ps.jurnal_materi}</span>
-                        </div>
-                      ))}
+                      {trackingResult.periode && <p className="text-xs text-gray-500 mt-1">Periode Aktif: {trackingResult.periode.bulan_periode} ({trackingResult.presensi.length}/12 Sesi)</p>}
                     </div>
                   </div>
                 )}
               </div>
             </section>
 
-            {/* PAKET BELAJAR */}
             <section className="max-w-6xl mx-auto px-4">
               <h3 className="text-3xl font-black text-center text-[#581878] mb-10">Pilihan Program Belajar</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {paketList.map((paket) => {
                   const isSelected = selectedPaket.includes(paket.id);
                   return (
-                    <div
-                      key={paket.id}
-                      onClick={() => {
-                        if (selectedPaket.includes(paket.id)) setSelectedPaket(selectedPaket.filter(p => p !== paket.id));
-                        else setSelectedPaket([...selectedPaket, paket.id]);
-                      }}
-                      className={`cursor-pointer bg-white rounded-3xl p-8 transition-all shadow-xl relative ${isSelected ? 'border-4 border-[#F59E0B] -translate-y-2' : 'border-2 border-purple-50'}`}
-                    >
+                    <div key={paket.id} onClick={() => isSelected ? setSelectedPaket(selectedPaket.filter(p => p !== paket.id)) : setSelectedPaket([...selectedPaket, paket.id])} className={`cursor-pointer bg-white rounded-3xl p-8 shadow-xl relative ${isSelected ? 'border-4 border-[#F59E0B] -translate-y-2' : 'border-2 border-purple-50'}`}>
                       {isSelected && <div className="absolute top-0 right-0 bg-[#F59E0B] text-white text-xs font-black px-4 py-1 rounded-bl-xl">✓ Terpilih</div>}
                       <h4 className="text-2xl font-black text-gray-900 mb-4">{paket.nama_paket}</h4>
                       <p className="text-gray-600 text-sm mb-6">{paket.deskripsi}</p>
@@ -868,28 +928,9 @@ export default function App() {
               </div>
             </section>
 
-            {/* ARTIKEL & VIDEO PUBLIK */}
-            <section className="max-w-6xl mx-auto px-4">
-              <h3 className="text-3xl font-black text-center text-[#581878] mb-10">Artikel & Video Edukasi</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {daftarKonten.map(k => (
-                  <div key={k.id} className="bg-white p-6 rounded-3xl shadow border">
-                    <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-800 px-2 py-1 rounded">{k.tipe}</span>
-                    <h4 className="text-xl font-bold text-gray-900 mt-2 mb-2">{k.judul}</h4>
-                    <p className="text-xs text-gray-600">{k.isi}</p>
-                  </div>
-                ))}
-                {daftarKonten.length === 0 && <div className="col-span-full text-center py-6 text-gray-400 bg-white rounded-3xl border">Belum ada konten publik yang dipublikasikan.</div>}
-              </div>
-            </section>
-
-            {/* FORMULIR PENDAFTARAN */}
             <section className="max-w-3xl mx-auto px-4">
               <div className="bg-white rounded-[2rem] shadow-2xl p-8 md:p-12 border-4 border-white">
-                <div className="text-center mb-8">
-                  <h3 className="text-3xl font-black text-[#581878] mb-2">Pendaftaran Siswa Baru</h3>
-                  <p className="text-gray-500 text-sm">Lengkapi formulir di bawah ini untuk terhubung ke WhatsApp Admin.</p>
-                </div>
+                <div className="text-center mb-8"><h3 className="text-3xl font-black text-[#581878] mb-2">Pendaftaran Siswa Baru</h3></div>
                 <form onSubmit={handleDaftarSubmit} className="space-y-4">
                   <input type="text" placeholder="Nama Lengkap Murid" required value={formDaftar.nama_murid} onChange={e => setFormDaftar({...formDaftar, nama_murid: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -897,7 +938,7 @@ export default function App() {
                     <input type="tel" placeholder="No WhatsApp" required value={formDaftar.no_hp} onChange={e => setFormDaftar({...formDaftar, no_hp: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" />
                   </div>
                   <textarea placeholder="Alamat Domisili" required value={formDaftar.alamat} onChange={e => setFormDaftar({...formDaftar, alamat: e.target.value})} className="w-full p-4 rounded-xl border text-sm bg-gray-50" rows="2" />
-                  <button type="submit" disabled={loading} className="w-full py-4 bg-[#581878] text-white font-black rounded-2xl shadow-xl">{loading ? 'Memproses...' : 'Kirim Pendaftaran via WhatsApp 🚀'}</button>
+                  <button type="submit" disabled={loading} className="w-full py-4 bg-[#581878] text-white font-black rounded-2xl shadow-xl">Kirim Pendaftaran via WhatsApp 🚀</button>
                 </form>
               </div>
             </section>
@@ -921,6 +962,20 @@ export default function App() {
               <input type="text" value={editSiswaData.nama_orang_tua} onChange={e => setEditSiswaData({...editSiswaData, nama_orang_tua: e.target.value})} className="w-full border p-3 rounded-xl text-sm" />
               <input type="text" value={editSiswaData.no_hp} onChange={e => setEditSiswaData({...editSiswaData, no_hp: e.target.value})} className="w-full border p-3 rounded-xl text-sm" />
               <div className="flex justify-end space-x-2 pt-2"><button type="button" onClick={() => setShowEditSiswaModal(false)} className="px-4 py-2 bg-gray-200 rounded-lg text-sm font-bold">Batal</button><button type="submit" className="px-5 py-2 bg-[#581878] text-white rounded-lg text-sm font-bold">Simpan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showApproveModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <h3 className="font-bold text-lg text-[#581878] mb-4">Setujui Siswa: {approveData.nama_murid}</h3>
+            <form onSubmit={handleSimpanApproval} className="space-y-4">
+              <input type="month" required value={approveData.bulan_periode} onChange={e => setApproveData({...approveData, bulan_periode: e.target.value})} className="w-full border p-3 rounded-xl text-sm" />
+              <input type="date" required value={approveData.tanggal_mulai} onChange={e => setApproveData({...approveData, tanggal_mulai: e.target.value})} className="w-full border p-3 rounded-xl text-sm" />
+              <input type="date" required value={approveData.tanggal_selesai} onChange={e => setApproveData({...approveData, tanggal_selesai: e.target.value})} className="w-full border p-3 rounded-xl text-sm" />
+              <div className="flex justify-end space-x-2 pt-2"><button type="button" onClick={() => setShowApproveModal(false)} className="px-4 py-2 bg-gray-200 rounded-lg text-sm font-bold">Batal</button><button type="submit" className="px-5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold">Setujui & Aktifkan</button></div>
             </form>
           </div>
         </div>
