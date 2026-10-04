@@ -66,6 +66,10 @@ export default function App() {
   });
   const [landingSections, setLandingSections] = useState([]);
 
+  // Search Orang Tua Landing Page State
+  const [searchOrtuQuery, setSearchOrtuQuery] = useState('');
+  const [ortuSearchResult, setOrtuSearchResult] = useState(null);
+
   // UI & Modals States
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [expandedStudentId, setExpandedStudentId] = useState(null);
@@ -223,7 +227,41 @@ export default function App() {
   }
 
   // ==========================================
-  // 3. HANDLERS - AUTH & PROFILE
+  // 3. HANDLER - CEK LAPORAN ORANG TUA LANDING PAGE
+  // ==========================================
+  const handleCariLaporanOrtu = (e) => {
+    e.preventDefault();
+    if (!searchOrtuQuery.trim()) {
+      return showToast('Masukkan Nama Siswa atau Nomor HP terlebih dahulu.', 'error');
+    }
+
+    const query = searchOrtuQuery.toLowerCase().trim();
+    const matchedSiswa = daftarSiswa.find(s => 
+      s.nama_murid?.toLowerCase().includes(query) || 
+      (s.no_hp && s.no_hp.includes(query))
+    );
+
+    if (!matchedSiswa) {
+      setOrtuSearchResult(null);
+      return showToast('Data siswa/ortu tidak ditemukan. Pastikan ejaan atau no HP benar.', 'error');
+    }
+
+    const pAktif = daftarPeriode.find(p => p.siswa_id === matchedSiswa.id && p.status_periode === 'berjalan');
+    const presensiList = pAktif ? daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id) : [];
+    const pembayaranList = daftarPembayaran.filter(pb => pb.siswa_id === matchedSiswa.id);
+
+    setOrtuSearchResult({
+      siswa: matchedSiswa,
+      periode: pAktif,
+      presensi: presensiList,
+      pembayaran: pembayaranList
+    });
+
+    showToast(`Data untuk ${matchedSiswa.nama_murid} berhasil ditemukan!`);
+  };
+
+  // ==========================================
+  // 4. HANDLERS - AUTH & PROFILE
   // ==========================================
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -263,7 +301,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 4. HANDLERS - PENDAFTARAN & ADMIN SISWA
+  // 5. HANDLERS - PENDAFTARAN & ADMIN SISWA
   // ==========================================
   const handleDaftarSubmit = async (e) => {
     e.preventDefault();
@@ -415,7 +453,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 5. HANDLERS - MENTOR & DELEGASI
+  // 6. HANDLERS - MENTOR & DELEGASI
   // ==========================================
   const handleTambahMentorSubmit = async (e) => {
     e.preventDefault();
@@ -522,7 +560,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 6. HANDLERS - PEMBAYARAN, LOGISTIK & SETUP WEB
+  // 7. HANDLERS - PEMBAYARAN, LOGISTIK & SETUP WEB
   // ==========================================
   const filteredPembayaran = daftarPembayaran.filter(pb => {
     const matchBulan = filterBulanPembayaran ? pb.tanggal_pembayaran?.startsWith(filterBulanPembayaran) : true;
@@ -661,7 +699,7 @@ export default function App() {
   };
 
   // ==========================================
-  // 7. HANDLERS - GURU PRESENSI SISWA
+  // 8. HANDLERS - GURU PRESENSI SISWA
   // ==========================================
   const handlePilihSiswaPresensi = (periode) => {
     setSearchSiswaPresensi(`${periode.siswa?.nama_murid} (${periode.paket_belajar?.nama_paket})`);
@@ -772,7 +810,7 @@ export default function App() {
                     <>
                       {['dashboard','siswa','mentor','pembayaran','modul','setup'].map(tab => (
                         <button key={tab} onClick={() => { setAdminTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition capitalize ${adminTab === tab ? 'bg-purple-900 text-white shadow-lg' : 'text-gray-600 hover:bg-purple-50'}`}>
-                          <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍‍🏫':tab==='pembayaran'?'💵':tab==='modul'?'📦':'⚙️'}</span> 
+                          <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍🏫':tab==='pembayaran'?'💵':tab==='modul'?'📦':'⚙️'}</span> 
                           <span>{tab==='setup'?'Setup & Konten':tab}</span>
                         </button>
                       ))}
@@ -1175,7 +1213,7 @@ export default function App() {
                             <div key={sec.id} className="border p-4 rounded-2xl flex justify-between items-center bg-gray-50">
                               <div>
                                 <h5 className="font-bold text-gray-900 text-sm">{sec.nama_section}</h5>
-                                <p className="text-xs text-gray-400">Key: {sec.section_key} | Urutan: <strong className="text-purple-700">{sec.urutan}</strong></p>
+                                <p className="text-xs text-gray-400">Key: {sec.section_key} | Urutan Tampil: <strong className="text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md font-black">{sec.urutan}</strong></p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button>
@@ -1361,21 +1399,24 @@ export default function App() {
           /* LANDING PAGE PUBLIK */
           <div className="space-y-0 bg-[#FFFDF0]">
             {(() => {
+              // SINKRONISASI VISIBILITAS & URUTAN LANDING SECTIONS secara REALTIME
               let renderSections = landingSections && landingSections.length > 0 
-                ? [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => a.urutan - b.urutan) 
+                ? [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => (a.urutan || 0) - (b.urutan || 0)) 
                 : [];
               
               if (renderSections.length === 0) {
                 renderSections = [
-                  { id: 'fb1', section_key: 'hero' }, 
-                  { id: 'fb3', section_key: 'paket' }, 
-                  { id: 'fb5', section_key: 'pendaftaran' }
+                  { id: 'fb1', section_key: 'hero', urutan: 1 }, 
+                  { id: 'fb2', section_key: 'cek_laporan', urutan: 2 }, 
+                  { id: 'fb3', section_key: 'paket', urutan: 3 }, 
+                  { id: 'fb5', section_key: 'pendaftaran', urutan: 4 }
                 ];
               }
 
               return renderSections.map(sec => {
                 const key = sec.section_key?.toLowerCase();
 
+                // 1. HERO SECTION
                 if (key === 'hero') {
                   return (
                     <section key={sec.id} className="bg-gradient-to-b from-[#581878] to-[#8022B8] text-white pt-24 pb-32 px-4 text-center">
@@ -1388,9 +1429,112 @@ export default function App() {
                   );
                 }
 
+                // 2. CEK LAPORAN ORANG TUA SECTION (FITUR BARU)
+                if (key === 'cek_laporan') {
+                  return (
+                    <section key={sec.id} className="max-w-4xl mx-auto px-4 py-12 -mt-16 relative z-30">
+                      <div className="bg-white rounded-3xl p-8 shadow-2xl border-2 border-purple-200">
+                        <div className="text-center mb-6">
+                          <span className="bg-purple-100 text-[#581878] text-[10px] font-black px-3 py-1 rounded-full uppercase">Fitur Wali Murid 👨‍👩‍👧‍👦</span>
+                          <h3 className="text-2xl font-black text-gray-900 mt-2">Cek Rekap Laporan & Presensi Siswa</h3>
+                          <p className="text-xs text-gray-500">Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.</p>
+                        </div>
+
+                        <form onSubmit={handleCariLaporanOrtu} className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
+                          <input 
+                            type="text" 
+                            placeholder="Ketik Nama Siswa atau Nomor HP Wali..." 
+                            value={searchOrtuQuery} 
+                            onChange={e => setSearchOrtuQuery(e.target.value)} 
+                            className="flex-1 p-4 rounded-2xl border border-gray-300 text-sm font-bold bg-gray-50 outline-none focus:border-purple-600 transition" 
+                          />
+                          <button type="submit" className="bg-[#581878] hover:bg-purple-900 text-white font-black px-6 py-4 rounded-2xl text-sm shadow-md transition">🔍 Cari Laporan</button>
+                        </form>
+
+                        {/* HASIL PENCARIAN ORANG TUA */}
+                        {ortuSearchResult && (
+                          <div className="mt-8 pt-6 border-t border-gray-100 space-y-6 animate-fade-in">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-purple-50 p-5 rounded-2xl border border-purple-100">
+                              <div>
+                                <span className="text-[10px] bg-purple-900 text-white font-extrabold px-2.5 py-0.5 rounded-full uppercase">{ortuSearchResult.siswa.jenjang_sekolah}</span>
+                                <h4 className="text-xl font-black text-gray-900 mt-1">{ortuSearchResult.siswa.nama_murid}</h4>
+                                <p className="text-xs text-gray-500">Wali: {ortuSearchResult.siswa.nama_orang_tua} ({ortuSearchResult.siswa.no_hp})</p>
+                              </div>
+                              <div className="mt-3 sm:mt-0 text-left sm:text-right">
+                                <p className="text-xs text-gray-400 font-bold">Status Siswa</p>
+                                <span className="inline-block bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full uppercase mt-0.5">✓ {ortuSearchResult.siswa.status}</span>
+                              </div>
+                            </div>
+
+                            {/* STATISTIK PERIODE AKTIF */}
+                            {ortuSearchResult.periode ? (
+                              <div className="space-y-4">
+                                <div className="bg-amber-50 p-5 rounded-2xl border border-amber-200">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs font-extrabold text-amber-900 uppercase">Progress Pertemuan Periode Berjalan</span>
+                                    <span className="text-sm font-black text-[#581878]">{ortuSearchResult.presensi.length} / 12 Sesi Selesai</span>
+                                  </div>
+                                  <div className="w-full bg-amber-200 h-3 rounded-full overflow-hidden">
+                                    <div className="bg-[#581878] h-full rounded-full transition-all duration-500" style={{ width: `${Math.min((ortuSearchResult.presensi.length / 12) * 100, 100)}%` }}></div>
+                                  </div>
+                                  <p className="text-[10px] text-amber-800 font-medium mt-2">Masa Aktif: {formatTanggalIndo(ortuSearchResult.periode.tanggal_mulai)} s/d {formatTanggalIndo(ortuSearchResult.periode.tanggal_selesai)}</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  {/* DETAIL PRESENSI */}
+                                  <div className="border p-5 rounded-2xl bg-gray-50">
+                                    <h5 className="font-black text-[#581878] text-xs uppercase mb-3 flex items-center gap-1.5"><span>📚</span> <span>Riwayat Kehadiran ({ortuSearchResult.presensi.length})</span></h5>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                                      {ortuSearchResult.presensi.map(ps => (
+                                        <div key={ps.id} className="bg-white p-3 rounded-xl border flex justify-between items-center">
+                                          <div>
+                                            <p className="font-bold text-gray-900">Sesi {ps.pertemuan_ke} ({formatTanggalIndo(ps.tanggal_pertemuan)})</p>
+                                            <p className="text-[11px] text-gray-500 line-clamp-1">{ps.jurnal_materi}</p>
+                                          </div>
+                                          <span className={`px-2.5 py-1 rounded-full font-black text-[10px] ${ps.is_hadir ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{ps.is_hadir ? 'Hadir' : 'Izin'}</span>
+                                        </div>
+                                      ))}
+                                      {ortuSearchResult.presensi.length === 0 && <p className="text-gray-400 italic text-center py-4">Belum ada catatan presensi pada periode ini.</p>}
+                                    </div>
+                                  </div>
+
+                                  {/* DETAIL PEMBAYARAN */}
+                                  <div className="border p-5 rounded-2xl bg-gray-50">
+                                    <h5 className="font-black text-emerald-700 text-xs uppercase mb-3 flex items-center gap-1.5"><span>💳</span> <span>Riwayat & Status Pembayaran</span></h5>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                                      {ortuSearchResult.pembayaran.map(pb => (
+                                        <div key={pb.id} className="bg-white p-3 rounded-xl border flex justify-between items-center">
+                                          <div>
+                                            <p className="font-bold text-gray-900">{pb.item_bayar}</p>
+                                            <p className="text-[10px] text-gray-400">{formatTanggalIndo(pb.tanggal_pembayaran)}</p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="font-black text-emerald-600 text-xs">Rp {(Number(pb.jumlah_bayar)||0).toLocaleString('id-ID')}</p>
+                                            <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase mt-0.5 ${pb.status_pembayaran === 'lunas' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{pb.status_pembayaran}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {ortuSearchResult.pembayaran.length === 0 && <p className="text-gray-400 italic text-center py-4">Belum ada riwayat pembayaran tercatat.</p>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-amber-50 p-4 rounded-2xl text-center text-xs font-bold text-amber-800">
+                                Siswa aktif namun belum memiliki periode belajar berjalan. Hubungi Admin Bimbingan.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  );
+                }
+
+                // 3. PROGRAM BELAJAR / PAKET SECTION
                 if (key === 'paket') {
                   return (
-                    <section key={sec.id} className="max-w-6xl mx-auto px-4 py-24 -mt-10 relative z-20">
+                    <section key={sec.id} className="max-w-6xl mx-auto px-4 py-20 relative z-20">
                       <div className="text-center mb-12">
                         <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">Program Belajar Unggulan</h3>
                         <p className="text-gray-500 mt-2">Pilih paket bimbingan yang tepat untuk buah hati Anda.</p>
@@ -1408,9 +1552,10 @@ export default function App() {
                   );
                 }
 
+                // 4. PENDAFTARAN SECTION
                 if (key === 'pendaftaran') {
                   return (
-                    <section key={sec.id} className="bg-purple-50 py-24 px-4">
+                    <section key={sec.id} className="bg-purple-50 py-20 px-4">
                       <div className="max-w-3xl mx-auto bg-white rounded-[2.5rem] shadow-2xl p-10 md:p-14 border border-purple-100 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-amber-400 to-[#581878]"></div>
                         <div className="text-center mb-10">
