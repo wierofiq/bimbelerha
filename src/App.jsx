@@ -73,6 +73,12 @@ export default function App() {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showEditPembayaranModal, setShowEditPembayaranModal] = useState(false);
   const [showTransaksiModal, setShowTransaksiModal] = useState(false);
+  
+  // Modal Baru untuk Detail & Edit Periode Siswa
+  const [showDetailSiswaModal, setShowDetailSiswaModal] = useState(false);
+  const [selectedDetailSiswa, setSelectedDetailSiswa] = useState(null);
+  const [showEditPeriodeModal, setShowEditPeriodeModal] = useState(false);
+  const [editPeriodeData, setEditPeriodeData] = useState({ periode_id: '', siswa_id: '', nama_murid: '', tanggal_mulai: '', tanggal_selesai: '' });
 
   // Forms
   const [formDaftar, setFormDaftar] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'SD' });
@@ -267,11 +273,10 @@ export default function App() {
   };
 
   const openApproveModal = (siswa) => {
-    // Cari semua periode pending untuk siswa ini
     const pPendings = daftarPeriode.filter(p => p.siswa_id === siswa.id && p.status_periode === 'pending');
     setApproveData({
       siswa_id: siswa.id, nama_murid: siswa.nama_murid, 
-      paket_ids: pPendings.map(p => p.paket_id), // Set array of pending paket_id
+      paket_ids: pPendings.map(p => p.paket_id),
       bulan_periode: new Date().toISOString().slice(0, 7), tanggal_mulai: new Date().toISOString().split('T')[0], 
       tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
     });
@@ -284,23 +289,74 @@ export default function App() {
     setLoading(true);
     try {
       await supabase.from('siswa').update({ status: 'aktif' }).eq('id', approveData.siswa_id);
-      
-      // Hapus data pending sebelumnya agar tidak duplikat
       await supabase.from('periode_belajar').delete().eq('siswa_id', approveData.siswa_id).eq('status_periode', 'pending');
       
-      // Insert ulang semua paket terpilih menjadi berjalan
       const inserts = approveData.paket_ids.map(pId => ({
         siswa_id: approveData.siswa_id, paket_id: pId, status_periode: 'berjalan', 
         bulan_periode: approveData.bulan_periode, tanggal_mulai: approveData.tanggal_mulai, 
         tanggal_selesai: approveData.tanggal_selesai, total_pertemuan: 12
       }));
       await supabase.from('periode_belajar').insert(inserts);
-      
       await supabase.from('pembayaran_siswa').insert([{ siswa_id: approveData.siswa_id, item_bayar: 'Pendaftaran & Paket Awal', jumlah_bayar: 0, status_pembayaran: 'Belum Lunas' }]);
-      showToast('Siswa diaktifkan dengan multi-paket yang dipilih!');
+      
+      showToast('Siswa berhasil disetujui & diaktifkan!');
       setShowApproveModal(false);
       fetchAllData();
     } catch (err) { showToast(err.message, 'error'); } finally { setLoading(false); }
+  };
+
+  const handleTolakSiswa = async (siswaId) => {
+    if (!window.confirm('Tolak dan hapus pendaftaran siswa ini?')) return;
+    try {
+      await supabase.from('periode_belajar').delete().eq('siswa_id', siswaId);
+      await supabase.from('siswa').delete().eq('id', siswaId);
+      showToast('Pendaftaran siswa ditolak & dihapus.');
+      fetchAllData();
+    } catch(err) { showToast('Gagal menolak siswa: ' + err.message, 'error'); }
+  };
+
+  const handleHapusSiswa = async (siswaId) => {
+    if (!window.confirm('Hapus data siswa ini beserta periode dan riwayat terkait?')) return;
+    try {
+      await supabase.from('periode_belajar').delete().eq('siswa_id', siswaId);
+      await supabase.from('pembayaran_siswa').delete().eq('siswa_id', siswaId);
+      await supabase.from('siswa').delete().eq('id', siswaId);
+      showToast('Data siswa berhasil dihapus.');
+      fetchAllData();
+    } catch(err) { showToast('Gagal menghapus siswa: ' + err.message, 'error'); }
+  };
+
+  const openDetailSiswa = (siswa) => {
+    setSelectedDetailSiswa(siswa);
+    setShowDetailSiswaModal(true);
+  };
+
+  const openEditPeriodeModal = (siswa) => {
+    const pAktif = daftarPeriode.find(p => p.siswa_id === siswa.id && p.status_periode === 'berjalan');
+    if (!pAktif) return showToast('Siswa ini tidak memiliki periode aktif yang bisa diedit.', 'error');
+    setEditPeriodeData({
+      periode_id: pAktif.id,
+      siswa_id: siswa.id,
+      nama_murid: siswa.nama_murid,
+      tanggal_mulai: pAktif.tanggal_mulai || '',
+      tanggal_selesai: pAktif.tanggal_selesai || ''
+    });
+    setShowEditPeriodeModal(true);
+  };
+
+  const handleSimpanEditPeriode = async (e) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.from('periode_belajar').update({
+        tanggal_mulai: editPeriodeData.tanggal_mulai,
+        tanggal_selesai: editPeriodeData.tanggal_selesai,
+        bulan_periode: editPeriodeData.tanggal_mulai ? editPeriodeData.tanggal_mulai.slice(0, 7) : undefined
+      }).eq('id', editPeriodeData.periode_id);
+      if (error) throw error;
+      showToast('Masa aktif periode berhasil diperbarui!');
+      setShowEditPeriodeModal(false);
+      fetchAllData();
+    } catch(err) { showToast('Gagal edit periode: ' + err.message, 'error'); }
   };
 
   const handleRolloverPeriode = async (siswa, pLama) => {
@@ -359,7 +415,7 @@ export default function App() {
   };
 
   const handleHapusMentor = async (id) => {
-    if(!window.confirm('Yakin ingin menghapus mentor ini permanen? Data terkait (seperti presensi) mungkin akan kehilangan referensi nama mentor.')) return;
+    if(!window.confirm('Yakin ingin menghapus mentor ini permanen?')) return;
     try {
       const { error } = await supabase.from('mentor').delete().eq('id', id);
       if (error) throw error;
@@ -413,17 +469,6 @@ export default function App() {
     showToast('Pembayaran berhasil dicatat!');
     setFormPembayaran({ siswa_id: '', tanggal_pembayaran: new Date().toISOString().split('T')[0], items: [], total_bayar: 0, catatan: '' });
     setSearchSiswaInputPembayaran('');
-    fetchAllData();
-  };
-
-  const handleSimpanEditPembayaran = async (e) => {
-    e.preventDefault();
-    await supabase.from('pembayaran_siswa').update({
-      jumlah_bayar: editPembayaranData.jumlah_bayar, item_bayar: editPembayaranData.item_bayar,
-      catatan: editPembayaranData.catatan, tanggal_pembayaran: editPembayaranData.tanggal_pembayaran
-    }).eq('id', editPembayaranData.id);
-    showToast('Data pembayaran diperbarui!');
-    setShowEditPembayaranModal(false);
     fetchAllData();
   };
 
@@ -510,27 +555,6 @@ export default function App() {
     await supabase.from('landing_sections').delete().eq('id', secId);
     showToast('Section berhasil dihapus.');
     fetchPengaturanWeb();
-  };
-
-  const handleTambahKonten = async (e) => {
-    e.preventDefault();
-    await supabase.from('konten_publik').insert([{ ...formKontenBaru, mentor_id: currentMentorProfile?.id || null }]);
-    showToast('Konten publik dipublikasikan!');
-    setShowTambahKontenModal(false);
-    setFormKontenBaru({ judul: '', tipe: 'artikel', isi: '', video_url: '' });
-    fetchAllData();
-  };
-
-  const handleTambahPresensiSiswa = async (e) => {
-    e.preventDefault();
-    if (!newPresensiSiswa.periode_id) return showToast('Pilih siswa aktif dari dropdown!', 'error');
-    if (!currentMentorProfile?.id) return showToast('Sesi login mentor tidak valid.', 'error');
-    const { error } = await supabase.from('presensi_siswa').insert([{ periode_id: newPresensiSiswa.periode_id, mentor_id: currentMentorProfile.id, pertemuan_ke: newPresensiSiswa.pertemuan_ke, tanggal_pertemuan: newPresensiSiswa.tanggal_pertemuan, is_hadir: newPresensiSiswa.status_kehadiran === 'Hadir', jurnal_materi: `[${newPresensiSiswa.status_kehadiran}] ${newPresensiSiswa.jurnal_materi}` }]);
-    if (error) { showToast('Gagal presensi: ' + error.message, 'error'); return; }
-    showToast('Presensi berhasil dicatat!');
-    setNewPresensiSiswa(prev => ({ ...prev, jurnal_materi: '' }));
-    setSearchSiswaPresensi('');
-    fetchAllData();
   };
 
   const jamBulanIniCurrentMentor = daftarPresensiMentor.filter(pm => pm.mentor_id === currentMentorProfile?.id && pm.tanggal?.startsWith(new Date().toISOString().slice(0, 7))).reduce((sum, pm) => sum + (Number(pm.total_jam) || 0), 0);
@@ -631,60 +655,85 @@ export default function App() {
                         <button onClick={() => setShowTambahSiswaModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Siswa Manual</button>
                       </div>
 
+                      {/* TAB PERSETUJUAN BARU */}
                       {siswaSubTab === 'persetujuan' && (
-                        <div className="bg-white rounded-3xl p-6 border shadow-sm">
+                        <div className="bg-white rounded-3xl p-6 border shadow-sm overflow-x-auto">
                           <table className="w-full text-left text-sm">
-                            <thead className="bg-purple-50"><tr><th className="p-4 rounded-tl-xl">Pendaftar</th><th className="p-4">Jenjang & Kontak</th><th className="p-4 text-center rounded-tr-xl">Aksi</th></tr></thead>
+                            <thead className="bg-purple-50">
+                              <tr>
+                                <th className="p-4 rounded-tl-xl">Nama Siswa</th>
+                                <th className="p-4">Nama Orang Tua</th>
+                                <th className="p-4">No HP</th>
+                                <th className="p-4">Jenjang</th>
+                                <th className="p-4">Alamat</th>
+                                <th className="p-4 text-center rounded-tr-xl">Aksi</th>
+                              </tr>
+                            </thead>
                             <tbody>
                               {daftarSiswa.filter(s => s.status === 'pending').map(s => (
                                 <tr key={s.id} className="border-t hover:bg-purple-50/50">
-                                  <td className="p-4 font-bold">{s.nama_murid}</td><td className="p-4">{s.jenjang_sekolah} <span className="block text-xs text-gray-500">{s.no_hp}</span></td>
-                                  <td className="p-4 text-center"><button onClick={() => openApproveModal(s)} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow hover:bg-emerald-700">✓ Setujui & Atur Periode</button></td>
+                                  <td className="p-4 font-bold text-gray-900">{s.nama_murid}</td>
+                                  <td className="p-4">{s.nama_orang_tua || '-'}</td>
+                                  <td className="p-4">{s.no_hp || '-'}</td>
+                                  <td className="p-4 font-bold"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{s.jenjang_sekolah}</span></td>
+                                  <td className="p-4 text-xs text-gray-500 max-w-xs truncate">{s.alamat || '-'}</td>
+                                  <td className="p-4 text-center space-x-2">
+                                    <button onClick={() => openApproveModal(s)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow">Setujui</button>
+                                    <button onClick={() => handleTolakSiswa(s.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Tolak</button>
+                                  </td>
                                 </tr>
                               ))}
+                              {daftarSiswa.filter(s => s.status === 'pending').length === 0 && (
+                                <tr><td colSpan="6" className="text-center p-8 italic text-gray-400">Tidak ada pendaftaran baru yang menunggu persetujuan.</td></tr>
+                              )}
                             </tbody>
                           </table>
                         </div>
                       )}
 
+                      {/* TAB DATA SISWA AKTIF */}
                       {siswaSubTab === 'data' && (
-                        <div className="bg-white rounded-3xl p-6 border shadow-sm">
+                        <div className="bg-white rounded-3xl p-6 border shadow-sm overflow-x-auto">
                           <table className="w-full text-left text-sm">
-                            <thead className="bg-purple-50"><tr><th className="p-4 rounded-tl-xl">Nama & Periode Aktif</th><th className="p-4 text-center">Progress Sesi</th><th className="p-4 text-center rounded-tr-xl">Aksi Periode</th></tr></thead>
+                            <thead className="bg-purple-50">
+                              <tr>
+                                <th className="p-4 rounded-tl-xl">Nama & Periode Aktif</th>
+                                <th className="p-4 text-center">Progress Sesi</th>
+                                <th className="p-4 text-center">Aksi (Detail / Periode / Hapus)</th>
+                                <th className="p-4 text-center rounded-tr-xl">Rollover</th>
+                              </tr>
+                            </thead>
                             <tbody>
                               {daftarSiswa.filter(s => s.status === 'aktif').map(s => {
                                 const pAktif = daftarPeriode.find(p => p.siswa_id === s.id && p.status_periode === 'berjalan');
-                                const isExpanded = expandedStudentId === s.id;
                                 const count = pAktif ? daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id).length : 0;
                                 const isLate = pAktif?.tanggal_selesai ? new Date() > new Date(pAktif.tanggal_selesai) : false;
 
                                 return (
-                                  <React.Fragment key={s.id}>
-                                    <tr className={`border-t cursor-pointer hover:bg-gray-50 transition-colors ${isExpanded ? 'bg-purple-50/50' : ''}`}>
-                                      <td className="p-4" onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}>
-                                        <div className="font-bold text-gray-900">{s.nama_murid} <span className="text-[10px] font-black bg-gray-200 px-2 py-0.5 rounded-full uppercase">{s.jenjang_sekolah}</span></div>
-                                        {pAktif ? (<div className="text-xs text-gray-500 mt-1">{formatTanggalIndo(pAktif.tanggal_mulai)} s/d {formatTanggalIndo(pAktif.tanggal_selesai)} {isLate && <span className="ml-2 text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">(Melewati Batas)</span>}</div>) : <div className="text-xs text-amber-500 font-bold mt-1">Belum ada periode aktif.</div>}
-                                      </td>
-                                      <td className="p-4 text-center" onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}><span className="text-xs bg-purple-100 text-purple-800 px-3 py-1.5 rounded-xl font-bold border border-purple-200">{count}/12 Sesi ▼</span></td>
-                                      <td className="p-4 text-center">{pAktif && (count >= 12 || isLate) && (<button onClick={() => handleRolloverPeriode(s, pAktif)} className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-purple-950 font-black px-3 py-1.5 rounded-xl text-xs shadow">🔄 Rollover Periode</button>)}</td>
-                                    </tr>
-                                    {isExpanded && pAktif && (
-                                      <tr className="bg-gray-50 border-b-2 border-purple-200">
-                                        <td colSpan="3" className="p-6">
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-purple-100">
-                                              <h5 className="font-black text-[#581878] mb-3 text-xs uppercase">📖 Riwayat Presensi</h5>
-                                              <ul className="space-y-2 text-xs">{daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id).map(ps => (<li key={ps.id} className="flex justify-between border-b border-gray-100 pb-1.5"><span>Sesi {ps.pertemuan_ke} - {formatTanggalIndo(ps.tanggal_pertemuan)}</span><span className="font-bold text-gray-600 truncate max-w-[140px]">{ps.jurnal_materi}</span></li>))}</ul>
-                                            </div>
-                                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100">
-                                              <h5 className="font-black text-emerald-700 mb-3 text-xs uppercase">💵 Riwayat Pembayaran</h5>
-                                              <ul className="space-y-2 text-xs">{daftarPembayaran.filter(pb => pb.siswa_id === s.id && pb.periode_id === pAktif.id).map(pb => (<li key={pb.id} className="flex justify-between border-b border-gray-100 pb-1.5"><span>{formatTanggalIndo(pb.tanggal_pembayaran)} - {pb.item_bayar}</span><span className="font-black text-emerald-600">Rp {(Number(pb.jumlah_bayar)||0).toLocaleString('id-ID')}</span></li>))}</ul>
-                                            </div>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
+                                  <tr key={s.id} className="border-t hover:bg-gray-50 transition-colors">
+                                    <td className="p-4">
+                                      <div className="font-bold text-gray-900">{s.nama_murid} <span className="text-[10px] font-black bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">{s.jenjang_sekolah}</span></div>
+                                      {pAktif ? (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {formatTanggalIndo(pAktif.tanggal_mulai)} s/d {formatTanggalIndo(pAktif.tanggal_selesai)} 
+                                          {isLate && <span className="ml-2 text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">(Lewat Tempo)</span>}
+                                        </div>
+                                      ) : <div className="text-xs text-amber-500 font-bold mt-1">Belum ada periode aktif.</div>}
+                                    </td>
+                                    <td className="p-4 text-center">
+                                      <span className="text-xs bg-purple-50 text-purple-900 px-3 py-1.5 rounded-xl font-bold border border-purple-200">{count}/12 Sesi</span>
+                                    </td>
+                                    <td className="p-4 text-center space-x-1.5">
+                                      <button onClick={() => openDetailSiswa(s)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold">Detail</button>
+                                      <button onClick={() => openEditPeriodeModal(s)} className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold">Edit Periode</button>
+                                      <button onClick={() => handleHapusSiswa(s.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg text-xs font-bold">Hapus</button>
+                                    </td>
+                                    <td className="p-4 text-center">
+                                      {pAktif && (count >= 12 || isLate) && (
+                                        <button onClick={() => handleRolloverPeriode(s, pAktif)} className="bg-gradient-to-r from-amber-500 to-amber-600 text-purple-950 font-black px-3 py-1.5 rounded-xl text-xs shadow">🔄 Rollover</button>
+                                      )}
+                                    </td>
+                                  </tr>
                                 );
                               })}
                             </tbody>
@@ -896,7 +945,7 @@ export default function App() {
               if (renderSections.length === 0) renderSections = [{ id: 'fb1', section_key: 'hero', urutan: 1 }, { id: 'fb2', section_key: 'cek_laporan', urutan: 2 }, { id: 'fb3', section_key: 'paket', urutan: 3 }, { id: 'fb5', section_key: 'pendaftaran', urutan: 4 }];
 
               return renderSections.map(sec => {
-                const key = sec.section_key?.toLowerCase();
+                const key = sec.section_key?.toLowerCase().trim();
                 
                 if (key === 'hero') {
                   return (
@@ -990,11 +1039,11 @@ export default function App() {
                   );
                 }
                 else {
-                  // GENERIC RENDERER UNTUK SECTION CUSTOM (BARU)
+                  // RENDER DINAMIS SECTION CUSTOM LAINNYA
                   return (
-                    <section key={sec.id} className="py-20 px-4 bg-white text-center">
-                      <div className="max-w-4xl mx-auto">
-                        <h3 className="text-4xl font-black text-[#581878] mb-4 drop-shadow-sm">{sec.nama_section}</h3>
+                    <section key={sec.id} className="py-20 px-4 bg-white text-center border-b border-gray-100">
+                      <div className="max-w-4xl mx-auto space-y-4">
+                        <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">{sec.nama_section}</h3>
                         <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{sec.deskripsi_section}</p>
                       </div>
                     </section>
@@ -1027,7 +1076,40 @@ export default function App() {
                 <div><label className="text-xs font-bold text-gray-600 mb-1.5 block">Tanggal Mulai:</label><input type="date" required value={approveData.tanggal_mulai} onChange={e => setApproveData({...approveData, tanggal_mulai: e.target.value})} className="w-full border p-4 rounded-2xl text-xs bg-gray-50 font-bold" /></div>
                 <div><label className="text-xs font-bold text-gray-600 mb-1.5 block">Selesai (+1 Bln):</label><input type="date" required value={approveData.tanggal_selesai} onChange={e => setApproveData({...approveData, tanggal_selesai: e.target.value})} className="w-full border p-4 rounded-2xl text-xs bg-gray-50 font-bold" /></div>
               </div>
-              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowApproveModal(false)} className="px-6 py-3.5 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition hover:bg-gray-300">Batal</button><button type="submit" className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-lg transition">Simpan & Aktifkan</button></div>
+              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowApproveModal(false)} className="px-6 py-3.5 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold transition">Batal</button><button type="submit" className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-lg">Simpan & Aktifkan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETAIL SISWA */}
+      {showDetailSiswaModal && selectedDetailSiswa && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl space-y-4">
+            <h3 className="font-black text-2xl text-[#581878] border-b pb-3">Detail Data Siswa</h3>
+            <div className="space-y-2 text-sm">
+              <p><strong>Nama Lengkap:</strong> {selectedDetailSiswa.nama_murid}</p>
+              <p><strong>Nama Orang Tua / Wali:</strong> {selectedDetailSiswa.nama_orang_tua || '-'}</p>
+              <p><strong>Nomor WhatsApp:</strong> {selectedDetailSiswa.no_hp || '-'}</p>
+              <p><strong>Jenjang Sekolah:</strong> {selectedDetailSiswa.jenjang_sekolah}</p>
+              <p><strong>Alamat Domisili:</strong> {selectedDetailSiswa.alamat || '-'}</p>
+              <p><strong>Status Akun:</strong> <span className="uppercase font-bold text-emerald-600">{selectedDetailSiswa.status}</span></p>
+            </div>
+            <div className="flex justify-end pt-4"><button onClick={() => setShowDetailSiswaModal(false)} className="px-6 py-2.5 bg-[#581878] text-white rounded-xl text-xs font-black shadow">Tutup</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT PERIODE SISWA */}
+      {showEditPeriodeModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+            <h3 className="font-black text-xl text-[#581878] mb-2">Edit Masa Aktif Periode</h3>
+            <p className="text-xs text-gray-500 mb-4">Siswa: <strong>{editPeriodeData.nama_murid}</strong></p>
+            <form onSubmit={handleSimpanEditPeriode} className="space-y-4">
+              <div><label className="text-xs font-bold block mb-1">Tanggal Mulai:</label><input type="date" required value={editPeriodeData.tanggal_mulai} onChange={e => setEditPeriodeData({...editPeriodeData, tanggal_mulai: e.target.value})} className="w-full border p-3 rounded-xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Tanggal Selesai (Batas Tempo):</label><input type="date" required value={editPeriodeData.tanggal_selesai} onChange={e => setEditPeriodeData({...editPeriodeData, tanggal_selesai: e.target.value})} className="w-full border p-3 rounded-xl text-sm font-bold bg-gray-50" /></div>
+              <div className="flex justify-end space-x-2 pt-4"><button type="button" onClick={() => setShowEditPeriodeModal(false)} className="px-4 py-2.5 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
             </form>
           </div>
         </div>
