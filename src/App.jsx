@@ -9,30 +9,27 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
-  // ==========================================
   // 1. STATE MANAGEMENT GLOBAL & AUTH
-  // ==========================================
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState('guru');
   const [currentMentorProfile, setCurrentMentorProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [appReady, setAppReady] = useState(false);
 
-  // Navigasi & Sidebar
+  // Navigasi
   const [adminTab, setAdminTab] = useState('dashboard'); 
   const [siswaSubTab, setSiswaSubTab] = useState('data'); 
   const [mentorSubTab, setMentorSubTab] = useState('daftar'); 
   const [guruTab, setGuruTab] = useState('beranda'); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Toast Notifikasi
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
   };
 
-  // Master Data States
+  // Master Data
   const [paketList, setPaketList] = useState([]);
   const [daftarSiswa, setDaftarSiswa] = useState([]);
   const [daftarMentor, setDaftarMentor] = useState([]);
@@ -44,31 +41,26 @@ export default function App() {
   const [daftarTransaksiLogistik, setDaftarTransaksiLogistik] = useState([]);
   const [daftarKonten, setDaftarKonten] = useState([]);
 
-  // Filter & Search States
+  // Filter & Search
   const [filterBulanPresensiMentor, setFilterBulanPresensiMentor] = useState(new Date().toISOString().slice(0, 7));
   const [filterBulanPembayaran, setFilterBulanPembayaran] = useState(new Date().toISOString().slice(0, 7));
-  const [searchSiswaPembayaranFilter, setSearchSiswaPembayaranFilter] = useState(''); // Untuk filter tabel bawah
+  const [searchSiswaPembayaranFilter, setSearchSiswaPembayaranFilter] = useState(''); 
   const [filterStatusPembayaran, setFilterStatusPembayaran] = useState('semua');
   const [filterStatusMentor, setFilterStatusMentor] = useState('aktif');
   const [currentPagePembayaran, setCurrentPagePembayaran] = useState(1);
   const itemsPerPage = 15;
 
-  // State Dropdown Pencarian Pembayaran
   const [searchSiswaInputPembayaran, setSearchSiswaInputPembayaran] = useState('');
   const [isDropdownPembayaranOpen, setIsDropdownPembayaranOpen] = useState(false);
-
-  // Custom Hari Presensi Mentor
   const [customTanggalPresensiGuru, setCustomTanggalPresensiGuru] = useState(new Date().toISOString().split('T')[0]);
 
-  // Web & Landing Page Setup States
-  const [pengaturanWeb, setPengaturanWeb] = useState({ 
-    id: 1, judul_utama: 'Bimbel ErHa', sub_judul: 'Rumah Hebat, Bersahabat & Berprestasi', logo_url: '', no_admin_wa: '6281915058297' 
-  });
+  // Web Setup
+  const [pengaturanWeb, setPengaturanWeb] = useState({ id: 1, judul_utama: 'Bimbel ErHa', sub_judul: 'Rumah Hebat, Bersahabat & Berprestasi', logo_url: '', no_admin_wa: '6281915058297' });
   const [landingSections, setLandingSections] = useState([]);
   const [searchOrtuQuery, setSearchOrtuQuery] = useState('');
   const [ortuSearchResult, setOrtuSearchResult] = useState(null);
 
-  // UI & Modals States
+  // UI Modals
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [showTambahSiswaModal, setShowTambahSiswaModal] = useState(false);
@@ -78,52 +70,31 @@ export default function App() {
   const [showTambahKontenModal, setShowTambahKontenModal] = useState(false);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
   const [showTambahSectionModal, setShowTambahSectionModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showEditPembayaranModal, setShowEditPembayaranModal] = useState(false);
+  const [showTransaksiModal, setShowTransaksiModal] = useState(false);
 
-  // Form States
+  // Forms
   const [formDaftar, setFormDaftar] = useState({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'SD' });
   const [selectedPaket, setSelectedPaket] = useState([]);
-
-  // Edit Siswa Manual - Multi Paket
+  
   const [formSiswaManual, setFormSiswaManual] = useState({ 
     nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'SD', paket_ids: [],
-    bulan_periode: new Date().toISOString().slice(0, 7),
-    tanggal_mulai: new Date().toISOString().split('T')[0],
-    tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+    bulan_periode: new Date().toISOString().slice(0, 7), tanggal_mulai: new Date().toISOString().split('T')[0], tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
   });
 
-  const [formTambahMentor, setFormTambahMentor] = useState({
-    nama_mentor: '', email: '', no_hp: '', alamat: '', password: '', honor_per_jam: 35000,
-    akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false
+  const [approveData, setApproveData] = useState({ 
+    siswa_id: '', nama_murid: '', paket_ids: [], bulan_periode: new Date().toISOString().slice(0, 7), tanggal_mulai: new Date().toISOString().split('T')[0], tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0] 
   });
 
-  const [editMentorData, setEditMentorData] = useState({
-    id: '', nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 35000,
-    akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false
-  });
-
-  const [editSectionData, setEditSectionData] = useState({
-    id: '', section_key: '', nama_section: '', deskripsi_section: '', urutan: 0, is_aktif: true
-  });
-
-  const [formTambahSection, setFormTambahSection] = useState({
-    section_key: '', nama_section: '', deskripsi_section: '', urutan: 1, is_aktif: true
-  });
-
+  const [formTambahMentor, setFormTambahMentor] = useState({ nama_mentor: '', email: '', no_hp: '', alamat: '', password: '', honor_per_jam: 35000, akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false });
+  const [editMentorData, setEditMentorData] = useState({ id: '', nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 35000, akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false });
+  const [editSectionData, setEditSectionData] = useState({ id: '', section_key: '', nama_section: '', deskripsi_section: '', urutan: 0, is_aktif: true });
+  const [formTambahSection, setFormTambahSection] = useState({ section_key: '', nama_section: '', deskripsi_section: '', urutan: 1, is_aktif: true });
   const [formBarangBaru, setFormBarangBaru] = useState({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
   const [formKontenBaru, setFormKontenBaru] = useState({ judul: '', tipe: 'artikel', isi: '', video_url: '' });
   const [formGantiPassword, setFormGantiPassword] = useState({ passwordBaru: '', konfirmasiPassword: '' });
-
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [approveData, setApproveData] = useState({ 
-    siswa_id: '', nama_murid: '', paket_id: '', 
-    bulan_periode: new Date().toISOString().slice(0, 7), 
-    tanggal_mulai: new Date().toISOString().split('T')[0], 
-    tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0] 
-  });
-
-  const [showEditPembayaranModal, setShowEditPembayaranModal] = useState(false);
   const [editPembayaranData, setEditPembayaranData] = useState({ id: '', jumlah_bayar: 0, item_bayar: '', catatan: '', tanggal_pembayaran: '' });
-  const [showTransaksiModal, setShowTransaksiModal] = useState(false);
   const [formTransaksi, setFormTransaksi] = useState({ barang_id: '', nama_barang: '', tipe_transaksi: 'Masuk', jumlah: 1, keterangan: '' });
   const [formPresensiMentor, setFormPresensiMentor] = useState({ mentor_id: '', tanggal: new Date().toISOString().split('T')[0], total_jam: 0, kegiatan_pembelajaran: '' });
   const [formPembayaran, setFormPembayaran] = useState({ siswa_id: '', tanggal_pembayaran: new Date().toISOString().split('T')[0], items: [], total_bayar: 0, catatan: '' });
@@ -132,24 +103,18 @@ export default function App() {
   const [isDropdownPresensiOpen, setIsDropdownPresensiOpen] = useState(false);
   const [newPresensiSiswa, setNewPresensiSiswa] = useState({ periode_id: '', pertemuan_ke: 1, tanggal_pertemuan: new Date().toISOString().split('T')[0], status_kehadiran: 'Hadir', jurnal_materi: '' });
 
-  // Format Tanggal Utility
   const formatTanggalIndo = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
   };
   const canMentorTransactInventory = currentMentorProfile && (currentMentorProfile.akses_inventaris || currentMentorProfile.delegasi_inventaris);
 
-  // ==========================================
-  // 2. EFFECTS & DATA FETCHING
-  // ==========================================
+  // 2. EFFECTS
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        determineUserRoleAndProfile(session.user).then(() => setAppReady(true));
-      } else {
-        setAppReady(true);
-      }
+      if (session?.user) determineUserRoleAndProfile(session.user).then(() => setAppReady(true));
+      else setAppReady(true);
       fetchAllData();
     });
 
@@ -167,8 +132,7 @@ export default function App() {
 
   async function determineUserRoleAndProfile(authUser) {
     if (authUser.email?.includes('admin')) {
-      setUserRole('admin');
-      setCurrentMentorProfile(null);
+      setUserRole('admin'); setCurrentMentorProfile(null);
     } else {
       setUserRole('guru');
       const { data } = await supabase.from('mentor').select('*').eq('email', authUser.email).single();
@@ -187,9 +151,7 @@ export default function App() {
       if (setObj) setPengaturanWeb(setObj);
       const { data: secData } = await supabase.from('landing_sections').select('*').order('urutan', { ascending: true });
       if (secData) setLandingSections(secData);
-    } catch(err) {
-      console.error("Setting fetch error:", err);
-    }
+    } catch(err) { console.error("Setting fetch error:", err); }
   }
 
   async function fetchAllData() {
@@ -215,26 +177,20 @@ export default function App() {
       if(logistik.data) setDaftarInventaris(logistik.data);
       if(transLog.data) setDaftarTransaksiLogistik(transLog.data);
       if(konten.data) setDaftarKonten(konten.data);
-    } catch(err) {
-      console.error('Error fetch global:', err);
-    }
+    } catch(err) { console.error('Error fetch global:', err); }
   }
 
   const handleCariLaporanOrtu = (e) => {
     e.preventDefault();
-    if (!searchOrtuQuery.trim()) return showToast('Masukkan Nama Siswa atau Nomor HP terlebih dahulu.', 'error');
+    if (!searchOrtuQuery.trim()) return showToast('Masukkan Nama Siswa atau Nomor HP.', 'error');
     const query = searchOrtuQuery.toLowerCase().trim();
     const matchedSiswa = daftarSiswa.find(s => s.nama_murid?.toLowerCase().includes(query) || (s.no_hp && s.no_hp.includes(query)));
     
-    if (!matchedSiswa) {
-      setOrtuSearchResult(null);
-      return showToast('Data siswa/ortu tidak ditemukan. Pastikan ejaan atau no HP benar.', 'error');
-    }
+    if (!matchedSiswa) { setOrtuSearchResult(null); return showToast('Data siswa/ortu tidak ditemukan.', 'error'); }
 
     const pAktif = daftarPeriode.find(p => p.siswa_id === matchedSiswa.id && p.status_periode === 'berjalan');
     setOrtuSearchResult({
-      siswa: matchedSiswa,
-      periode: pAktif,
+      siswa: matchedSiswa, periode: pAktif,
       presensi: pAktif ? daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id) : [],
       pembayaran: daftarPembayaran.filter(pb => pb.siswa_id === matchedSiswa.id)
     });
@@ -254,17 +210,15 @@ export default function App() {
 
   const handleGantiPasswordMentor = async (e) => {
     e.preventDefault();
-    if (formGantiPassword.passwordBaru !== formGantiPassword.konfirmasiPassword) return showToast('Konfirmasi kata sandi tidak cocok!', 'error');
+    if (formGantiPassword.passwordBaru !== formGantiPassword.konfirmasiPassword) return showToast('Konfirmasi tidak cocok!', 'error');
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: formGantiPassword.passwordBaru });
     if (error) showToast('Gagal mengubah password: ' + error.message, 'error');
-    else { showToast('Password berhasil diperbarui!'); setFormGantiPassword({ passwordBaru: '', konfirmasiPassword: '' }); }
+    else { showToast('Password diperbarui!'); setFormGantiPassword({ passwordBaru: '', konfirmasiPassword: '' }); }
     setLoading(false);
   };
 
-  // ==========================================
-  // 5. HANDLERS - PENDAFTARAN & ADMIN SISWA
-  // ==========================================
+  // 5. HANDLERS - SISWA & PENDAFTARAN
   const handleDaftarSubmit = async (e) => {
     e.preventDefault();
     if (selectedPaket.length === 0) return showToast('Pilih minimal satu paket!', 'error');
@@ -298,13 +252,9 @@ export default function App() {
       if (sErr) throw sErr;
       if (sData && sData[0]) {
         const inserts = formSiswaManual.paket_ids.map(pId => ({
-          siswa_id: sData[0].id,
-          paket_id: pId,
-          bulan_periode: formSiswaManual.bulan_periode,
-          tanggal_mulai: formSiswaManual.tanggal_mulai,
-          tanggal_selesai: formSiswaManual.tanggal_selesai,
-          status_periode: 'berjalan',
-          total_pertemuan: 12
+          siswa_id: sData[0].id, paket_id: pId, bulan_periode: formSiswaManual.bulan_periode,
+          tanggal_mulai: formSiswaManual.tanggal_mulai, tanggal_selesai: formSiswaManual.tanggal_selesai,
+          status_periode: 'berjalan', total_pertemuan: 12
         }));
         await supabase.from('periode_belajar').insert(inserts);
         await supabase.from('pembayaran_siswa').insert([{ siswa_id: sData[0].id, item_bayar: 'Paket Belajar Bulanan Awal', jumlah_bayar: 0, status_pembayaran: 'Belum Lunas' }]);
@@ -317,9 +267,11 @@ export default function App() {
   };
 
   const openApproveModal = (siswa) => {
-    const pPending = daftarPeriode.find(p => p.siswa_id === siswa.id && p.status_periode === 'pending');
+    // Cari semua periode pending untuk siswa ini
+    const pPendings = daftarPeriode.filter(p => p.siswa_id === siswa.id && p.status_periode === 'pending');
     setApproveData({
-      siswa_id: siswa.id, nama_murid: siswa.nama_murid, paket_id: pPending?.paket_id || '', 
+      siswa_id: siswa.id, nama_murid: siswa.nama_murid, 
+      paket_ids: pPendings.map(p => p.paket_id), // Set array of pending paket_id
       bulan_periode: new Date().toISOString().slice(0, 7), tanggal_mulai: new Date().toISOString().split('T')[0], 
       tanggal_selesai: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
     });
@@ -328,32 +280,24 @@ export default function App() {
 
   const handleSimpanApproval = async (e) => {
     e.preventDefault();
+    if (approveData.paket_ids.length === 0) return showToast('Pilih minimal 1 paket belajar!', 'error');
     setLoading(true);
     try {
       await supabase.from('siswa').update({ status: 'aktif' }).eq('id', approveData.siswa_id);
       
-      const pendingPeriods = daftarPeriode.filter(p => p.siswa_id === approveData.siswa_id && p.status_periode === 'pending');
-      if (pendingPeriods.length > 0) {
-        for (const p of pendingPeriods) {
-          await supabase.from('periode_belajar').update({ 
-            status_periode: 'berjalan', bulan_periode: approveData.bulan_periode, 
-            tanggal_mulai: approveData.tanggal_mulai, tanggal_selesai: approveData.tanggal_selesai
-          }).eq('id', p.id);
-        }
-      } else {
-        if (approveData.paket_id) {
-          await supabase.from('periode_belajar').insert([{
-            siswa_id: approveData.siswa_id, paket_id: approveData.paket_id, status_periode: 'berjalan', 
-            bulan_periode: approveData.bulan_periode, tanggal_mulai: approveData.tanggal_mulai, 
-            tanggal_selesai: approveData.tanggal_selesai, total_pertemuan: 12
-          }]);
-        } else {
-          throw new Error("Siswa tidak memiliki paket pending. Harap pilih paket belajar pada form persetujuan.");
-        }
-      }
+      // Hapus data pending sebelumnya agar tidak duplikat
+      await supabase.from('periode_belajar').delete().eq('siswa_id', approveData.siswa_id).eq('status_periode', 'pending');
+      
+      // Insert ulang semua paket terpilih menjadi berjalan
+      const inserts = approveData.paket_ids.map(pId => ({
+        siswa_id: approveData.siswa_id, paket_id: pId, status_periode: 'berjalan', 
+        bulan_periode: approveData.bulan_periode, tanggal_mulai: approveData.tanggal_mulai, 
+        tanggal_selesai: approveData.tanggal_selesai, total_pertemuan: 12
+      }));
+      await supabase.from('periode_belajar').insert(inserts);
       
       await supabase.from('pembayaran_siswa').insert([{ siswa_id: approveData.siswa_id, item_bayar: 'Pendaftaran & Paket Awal', jumlah_bayar: 0, status_pembayaran: 'Belum Lunas' }]);
-      showToast('Siswa berhasil diaktifkan & Periode sukses diset!');
+      showToast('Siswa diaktifkan dengan multi-paket yang dipilih!');
       setShowApproveModal(false);
       fetchAllData();
     } catch (err) { showToast(err.message, 'error'); } finally { setLoading(false); }
@@ -377,11 +321,12 @@ export default function App() {
     } catch(err) { showToast('Gagal rollover: ' + err.message, 'error'); } finally { setLoading(false); }
   };
 
+  // 6. HANDLERS - MENTOR
   const handleTambahMentorSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data: authData, error: authErr } = await supabase.auth.signUp({ email: formTambahMentor.email, password: formTambahMentor.password });
+      const { error: authErr } = await supabase.auth.signUp({ email: formTambahMentor.email, password: formTambahMentor.password });
       if (authErr) throw authErr;
       const { error: mErr } = await supabase.from('mentor').insert([{ ...formTambahMentor, status: 'aktif' }]);
       if (mErr) throw mErr;
@@ -413,6 +358,16 @@ export default function App() {
     } catch(err) { showToast('Gagal edit mentor: ' + err.message, 'error'); } finally { setLoading(false); }
   };
 
+  const handleHapusMentor = async (id) => {
+    if(!window.confirm('Yakin ingin menghapus mentor ini permanen? Data terkait (seperti presensi) mungkin akan kehilangan referensi nama mentor.')) return;
+    try {
+      const { error } = await supabase.from('mentor').delete().eq('id', id);
+      if (error) throw error;
+      showToast('Mentor berhasil dihapus.');
+      fetchAllData();
+    } catch(err) { showToast('Gagal menghapus: ' + err.message, 'error'); }
+  };
+
   const handleToggleStatusMentor = async (mentorId, statusSaatIni) => {
     const statusBaru = statusSaatIni === 'aktif' ? 'non-aktif' : 'aktif';
     await supabase.from('mentor').update({ status: statusBaru }).eq('id', mentorId);
@@ -420,17 +375,21 @@ export default function App() {
     fetchAllData();
   };
 
+  const filteredPresensiMentor = daftarPresensiMentor.filter(pm => filterBulanPresensiMentor ? pm.tanggal?.startsWith(filterBulanPresensiMentor) : true);
+  const totalJamMentorFiltered = filteredPresensiMentor.reduce((sum, pm) => sum + (Number(pm.total_jam) || 0), 0);
+
   const handleTambahPresensiMentor = async (e) => {
     e.preventDefault();
-    await supabase.from('presensi_mentor').insert([formPresensiMentor]);
-    showToast('Presensi mentor tersimpan!');
-    setFormPresensiMentor({ ...formPresensiMentor, total_jam: 0, kegiatan_pembelajaran: '' });
-    fetchAllData();
+    try {
+      const { error } = await supabase.from('presensi_mentor').insert([formPresensiMentor]);
+      if (error) throw error;
+      showToast('Presensi mentor tersimpan!');
+      setFormPresensiMentor({ ...formPresensiMentor, total_jam: 0, kegiatan_pembelajaran: '' });
+      fetchAllData();
+    } catch (err) { showToast('Gagal menyimpan presensi mentor: ' + err.message, 'error'); }
   };
 
-  // ==========================================
-  // 7. HANDLERS - PEMBAYARAN, LOGISTIK & SETUP WEB
-  // ==========================================
+  // 7. PEMBAYARAN, LOGISTIK & SETUP
   const filteredPembayaran = daftarPembayaran.filter(pb => {
     const matchBulan = filterBulanPembayaran ? pb.tanggal_pembayaran?.startsWith(filterBulanPembayaran) : true;
     const matchNama = searchSiswaPembayaranFilter ? pb.siswa?.nama_murid?.toLowerCase().includes(searchSiswaPembayaranFilter.toLowerCase()) : true;
@@ -439,8 +398,23 @@ export default function App() {
   });
 
   const totalPenerimaanBulanan = filteredPembayaran.reduce((sum, pb) => sum + (Number(pb.jumlah_bayar) || 0), 0);
-  const totalPagesPembayaran = Math.ceil(filteredPembayaran.length / itemsPerPage);
   const paginatedPembayaran = filteredPembayaran.slice((currentPagePembayaran - 1) * itemsPerPage, currentPagePembayaran * itemsPerPage);
+
+  const handleCatatPembayaran = async (e) => {
+    e.preventDefault();
+    if (formPembayaran.items.length === 0) return showToast('Pilih minimal 1 item!', 'error');
+    if (!formPembayaran.siswa_id) return showToast('Pastikan siswa dipilih dari hasil pencarian dropdown!', 'error');
+    
+    const gabunganItems = formPembayaran.items.join(', ');
+    await supabase.from('pembayaran_siswa').insert([{ 
+      siswa_id: formPembayaran.siswa_id, item_bayar: gabunganItems, jumlah_bayar: formPembayaran.total_bayar, 
+      tanggal_pembayaran: formPembayaran.tanggal_pembayaran, catatan: formPembayaran.catatan, status_pembayaran: 'lunas' 
+    }]);
+    showToast('Pembayaran berhasil dicatat!');
+    setFormPembayaran({ siswa_id: '', tanggal_pembayaran: new Date().toISOString().split('T')[0], items: [], total_bayar: 0, catatan: '' });
+    setSearchSiswaInputPembayaran('');
+    fetchAllData();
+  };
 
   const handleSimpanEditPembayaran = async (e) => {
     e.preventDefault();
@@ -450,21 +424,6 @@ export default function App() {
     }).eq('id', editPembayaranData.id);
     showToast('Data pembayaran diperbarui!');
     setShowEditPembayaranModal(false);
-    fetchAllData();
-  };
-
-  const handleCatatPembayaran = async (e) => {
-    e.preventDefault();
-    if (formPembayaran.items.length === 0) return showToast('Pilih minimal 1 item!', 'error');
-    if (!formPembayaran.siswa_id) return showToast('Pastikan siswa dipilih dari pencarian!', 'error');
-    const gabunganItems = formPembayaran.items.join(', ');
-    await supabase.from('pembayaran_siswa').insert([{ 
-      siswa_id: formPembayaran.siswa_id, item_bayar: gabunganItems, jumlah_bayar: formPembayaran.total_bayar, 
-      tanggal_pembayaran: formPembayaran.tanggal_pembayaran, catatan: formPembayaran.catatan, status_pembayaran: 'lunas' 
-    }]);
-    showToast('Pembayaran berhasil dicatat!');
-    setFormPembayaran({ siswa_id: '', tanggal_pembayaran: new Date().toISOString().split('T')[0], items: [], total_bayar: 0, catatan: '' });
-    setSearchSiswaInputPembayaran('');
     fetchAllData();
   };
 
@@ -497,9 +456,7 @@ export default function App() {
     if (newStock < 0) return showToast('Error: Stok tidak mencukupi untuk barang keluar!', 'error');
     try {
       await supabase.from('inventaris_logistik').update({ stok: newStock }).eq('id', barang.id);
-      await supabase.from('transaksi_logistik').insert([{
-        barang_id: barang.id, tipe_transaksi: formTransaksi.tipe_transaksi, jumlah: formTransaksi.jumlah, keterangan: formTransaksi.keterangan
-      }]);
+      await supabase.from('transaksi_logistik').insert([{ barang_id: barang.id, tipe_transaksi: formTransaksi.tipe_transaksi, jumlah: formTransaksi.jumlah, keterangan: formTransaksi.keterangan }]);
       showToast(`Transaksi ${formTransaksi.tipe_transaksi} (${formTransaksi.jumlah} Pcs) berhasil dicatat.`);
       setShowTransaksiModal(false);
       fetchAllData();
@@ -514,18 +471,13 @@ export default function App() {
   };
 
   const openEditSectionModal = (sec) => {
-    setEditSectionData({
-      id: sec.id, section_key: sec.section_key, nama_section: sec.nama_section, deskripsi_section: sec.deskripsi_section || '',
-      urutan: sec.urutan || 0, is_aktif: sec.is_aktif ?? true
-    });
+    setEditSectionData({ id: sec.id, section_key: sec.section_key, nama_section: sec.nama_section, deskripsi_section: sec.deskripsi_section || '', urutan: sec.urutan || 0, is_aktif: sec.is_aktif ?? true });
     setShowEditSectionModal(true);
   };
 
   const handleSimpanEditSection = async (e) => {
     e.preventDefault();
-    await supabase.from('landing_sections').update({
-      nama_section: editSectionData.nama_section, deskripsi_section: editSectionData.deskripsi_section, urutan: editSectionData.urutan, is_aktif: editSectionData.is_aktif
-    }).eq('id', editSectionData.id);
+    await supabase.from('landing_sections').update({ nama_section: editSectionData.nama_section, deskripsi_section: editSectionData.deskripsi_section, urutan: editSectionData.urutan, is_aktif: editSectionData.is_aktif }).eq('id', editSectionData.id);
     showToast('Pengaturan section landing page diperbarui!');
     setShowEditSectionModal(false);
     fetchPengaturanWeb();
@@ -563,11 +515,26 @@ export default function App() {
   const handleTambahKonten = async (e) => {
     e.preventDefault();
     await supabase.from('konten_publik').insert([{ ...formKontenBaru, mentor_id: currentMentorProfile?.id || null }]);
-    showToast('Konten publik baru dipublikasikan!');
+    showToast('Konten publik dipublikasikan!');
     setShowTambahKontenModal(false);
     setFormKontenBaru({ judul: '', tipe: 'artikel', isi: '', video_url: '' });
     fetchAllData();
   };
+
+  const handleTambahPresensiSiswa = async (e) => {
+    e.preventDefault();
+    if (!newPresensiSiswa.periode_id) return showToast('Pilih siswa aktif dari dropdown!', 'error');
+    if (!currentMentorProfile?.id) return showToast('Sesi login mentor tidak valid.', 'error');
+    const { error } = await supabase.from('presensi_siswa').insert([{ periode_id: newPresensiSiswa.periode_id, mentor_id: currentMentorProfile.id, pertemuan_ke: newPresensiSiswa.pertemuan_ke, tanggal_pertemuan: newPresensiSiswa.tanggal_pertemuan, is_hadir: newPresensiSiswa.status_kehadiran === 'Hadir', jurnal_materi: `[${newPresensiSiswa.status_kehadiran}] ${newPresensiSiswa.jurnal_materi}` }]);
+    if (error) { showToast('Gagal presensi: ' + error.message, 'error'); return; }
+    showToast('Presensi berhasil dicatat!');
+    setNewPresensiSiswa(prev => ({ ...prev, jurnal_materi: '' }));
+    setSearchSiswaPresensi('');
+    fetchAllData();
+  };
+
+  const jamBulanIniCurrentMentor = daftarPresensiMentor.filter(pm => pm.mentor_id === currentMentorProfile?.id && pm.tanggal?.startsWith(new Date().toISOString().slice(0, 7))).reduce((sum, pm) => sum + (Number(pm.total_jam) || 0), 0);
+  const estimasiPenghasilanBulanIni = jamBulanIniCurrentMentor * (Number(currentMentorProfile?.honor_per_jam) || 0);
 
   // ==========================================
   // RENDER UTAMA
@@ -587,9 +554,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center space-x-3">
             {user && (
-              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden text-white focus:outline-none">
-                <span className="text-2xl">☰</span>
-              </button>
+              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden text-white focus:outline-none"><span className="text-2xl">☰</span></button>
             )}
             <div className="flex items-center space-x-2.5">
               <div className="bg-white p-1 rounded-xl shadow-inner"><img src={pengaturanWeb.logo_url || "/logo.png"} alt="Logo" className="h-8 w-8 object-contain" /></div>
@@ -622,7 +587,7 @@ export default function App() {
                   {userRole === 'admin' ? (
                     ['dashboard','siswa','mentor','pembayaran','modul','setup'].map(tab => (
                       <button key={tab} onClick={() => { setAdminTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition capitalize ${adminTab === tab ? 'bg-purple-900 text-white shadow-lg' : 'text-gray-600 hover:bg-purple-50'}`}>
-                        <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍🏫':tab==='pembayaran'?'💵':tab==='modul'?'📦':'⚙️️'}</span> 
+                        <span>{tab==='dashboard'?'📊':tab==='siswa'?'📋':tab==='mentor'?'👩‍🏫':tab==='pembayaran'?'💵':tab==='modul'?'📦':'⚙'}</span> 
                         <span>{tab==='setup'?'Setup & Konten':tab}</span>
                       </button>
                     ))
@@ -742,17 +707,62 @@ export default function App() {
                       {mentorSubTab === 'daftar' && (
                         <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-4">
                           <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50"><tr><th className="p-3">Mentor</th><th className="p-3">Honor/Jam</th><th className="p-3 text-center">Aksi</th></tr></thead>
+                            <thead className="bg-gray-50"><tr><th className="p-3">Mentor</th><th className="p-3">Honor/Jam</th><th className="p-3">Delegasi Tugas</th><th className="p-3 text-center">Aksi</th></tr></thead>
                             <tbody>
                               {daftarMentor.filter(m => m.status === filterStatusMentor).map(m => (
                                 <tr key={m.id} className="border-t hover:bg-gray-50">
-                                  <td className="p-3 font-bold">{m.nama_mentor}</td>
+                                  <td className="p-3 font-bold">{m.nama_mentor} <span className="block text-xs font-normal text-gray-500">{m.email}</span></td>
                                   <td className="p-3 font-bold text-emerald-600">Rp {(Number(m.honor_per_jam)||0).toLocaleString('id-ID')}</td>
-                                  <td className="p-3 text-center"><button onClick={() => openEditMentorModal(m)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button></td>
+                                  <td className="p-3 text-xs">
+                                    <div className="flex flex-wrap gap-1">
+                                      {(m.akses_inventaris || m.delegasi_inventaris) && <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black">📦 Logistik</span>}
+                                      {(m.akses_perizinan || m.delegasi_perizinan) && <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-black">📩 Perizinan</span>}
+                                      {(m.akses_konten || m.delegasi_konten) && <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-black">📝 Konten</span>}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center space-x-2">
+                                    <button onClick={() => openEditMentorModal(m)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit / Delegasi</button>
+                                    <button onClick={() => handleHapusMentor(m.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Hapus</button>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
+                        </div>
+                      )}
+
+                      {mentorSubTab === 'presensi' && (
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
+                          <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
+                            <h3 className="font-black text-purple-900 mb-4">Catat Jam Kerja Mentor</h3>
+                            <form onSubmit={handleTambahPresensiMentor} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <select required value={formPresensiMentor.mentor_id} onChange={e => setFormPresensiMentor({...formPresensiMentor, mentor_id: e.target.value})} className="border p-3 rounded-xl text-sm bg-white font-bold"><option value="">Pilih Mentor</option>{daftarMentor.filter(m=>m.status==='aktif').map(m => <option key={m.id} value={m.id}>{m.nama_mentor}</option>)}</select>
+                              <input type="date" required value={formPresensiMentor.tanggal} onChange={e => setFormPresensiMentor({...formPresensiMentor, tanggal: e.target.value})} className="border p-3 rounded-xl text-sm bg-white" />
+                              <input type="number" step="0.5" placeholder="Total Jam (Contoh: 1.5)" required value={formPresensiMentor.total_jam} onChange={e => setFormPresensiMentor({...formPresensiMentor, total_jam: parseFloat(e.target.value)})} className="border p-3 rounded-xl text-sm bg-white font-bold" />
+                              <button type="submit" className="bg-[#581878] hover:bg-purple-900 text-white rounded-xl font-black text-sm shadow transition">Simpan Jam</button>
+                            </form>
+                          </div>
+                          
+                          <div className="pt-4 border-t border-gray-100">
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+                              <h3 className="font-extrabold text-gray-900 text-lg">Rekapitulasi Jam Kerja</h3>
+                              <input type="month" value={filterBulanPresensiMentor} onChange={e => setFilterBulanPresensiMentor(e.target.value)} className="border p-2.5 rounded-xl text-sm font-bold bg-white shadow-sm" />
+                            </div>
+                            <div className="bg-gradient-to-r from-[#581878] to-purple-800 text-white p-5 rounded-2xl flex justify-between items-center mb-6 shadow-md">
+                              <div><span className="font-bold text-sm block">Total Seluruh Jam Mengajar</span><span className="text-xs text-purple-300">Pada bulan terpilih</span></div>
+                              <span className="text-3xl font-black text-amber-400">{totalJamMentorFiltered} Jam</span>
+                            </div>
+                            <table className="w-full text-left text-sm">
+                              <thead className="bg-gray-50"><tr><th className="p-3 rounded-tl-xl">Tanggal</th><th className="p-3">Mentor</th><th className="p-3 text-right rounded-tr-xl">Total Jam</th></tr></thead>
+                              <tbody>
+                                {filteredPresensiMentor.length > 0 ? filteredPresensiMentor.map(pm => (
+                                  <tr key={pm.id} className="border-t hover:bg-gray-50">
+                                    <td className="p-3">{formatTanggalIndo(pm.tanggal)}</td><td className="p-3 font-bold">{pm.mentor?.nama_mentor}</td><td className="p-3 text-right font-black text-purple-700">{pm.total_jam}</td>
+                                  </tr>
+                                )) : <tr><td colSpan="3" className="p-6 text-center text-gray-400 italic">Belum ada data presensi mentor tercatat pada bulan ini.</td></tr>}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -865,7 +875,7 @@ export default function App() {
                                   <td className="p-3 text-center"><input type="number" value={sec.urutan} onChange={(e) => { const val = e.target.value; setLandingSections(prev => prev.map(s => s.id === sec.id ? { ...s, urutan: val } : s)); }} onBlur={(e) => handleUpdateUrutanSection(sec.id, e.target.value)} className="w-12 text-center border p-1 rounded-lg font-black text-purple-900 bg-purple-50" /></td>
                                   <td className="p-3 font-bold text-gray-900">{sec.nama_section} <span className="block text-[10px] text-gray-400 font-normal truncate max-w-xs">{sec.deskripsi_section}</span></td>
                                   <td className="p-3 text-center"><button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1 rounded-full text-xs font-black transition ${sec.is_aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'}`}>{sec.is_aktif ? '✓ Aktif' : '✕ Non-Aktif'}</button></td>
-                                  <td className="p-3 text-center space-x-2"><button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button></td>
+                                  <td className="p-3 text-center space-x-2"><button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button> <button onClick={() => handleHapusSection(sec.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Hapus</button></td>
                                 </tr>
                               ))}
                             </tbody>
@@ -894,20 +904,19 @@ export default function App() {
                       <div className="max-w-4xl mx-auto space-y-6">
                         <span className="inline-block bg-amber-400 text-purple-950 text-xs font-black px-5 py-2 rounded-full uppercase shadow-lg tracking-widest">Bimbingan Belajar Modern 🚀</span>
                         <h2 className="text-5xl md:text-7xl font-black tracking-tight leading-tight drop-shadow-md">{sec.nama_section || pengaturanWeb.judul_utama}</h2>
-                        <p className="text-xl text-purple-200 font-medium">{sec.deskripsi_section || pengaturanWeb.sub_judul}</p>
+                        <p className="text-xl text-purple-200 font-medium whitespace-pre-wrap">{sec.deskripsi_section || pengaturanWeb.sub_judul}</p>
                       </div>
                     </section>
                   );
                 }
-
-                if (key === 'cek_laporan') {
+                else if (key === 'cek_laporan') {
                   return (
                     <section key={sec.id} className="max-w-4xl mx-auto px-4 py-12 -mt-16 relative z-30">
                       <div className="bg-white rounded-3xl p-8 shadow-2xl border-2 border-purple-200">
                         <div className="text-center mb-6">
                           <span className="bg-purple-100 text-[#581878] text-[10px] font-black px-3 py-1 rounded-full uppercase">Fitur Wali Murid 👨‍👩‍👧‍👦</span>
                           <h3 className="text-2xl font-black text-gray-900 mt-2">{sec.nama_section || 'Cek Rekap Laporan & Presensi Siswa'}</h3>
-                          <p className="text-xs text-gray-500">{sec.deskripsi_section || 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.'}</p>
+                          <p className="text-xs text-gray-500 whitespace-pre-wrap">{sec.deskripsi_section || 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.'}</p>
                         </div>
                         <form onSubmit={handleCariLaporanOrtu} className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
                           <input type="text" placeholder="Ketik Nama Siswa atau Nomor HP Wali..." value={searchOrtuQuery} onChange={e => setSearchOrtuQuery(e.target.value)} className="flex-1 p-4 rounded-2xl border border-gray-300 text-sm font-bold bg-gray-50 outline-none focus:border-purple-600 transition" />
@@ -939,13 +948,12 @@ export default function App() {
                     </section>
                   );
                 }
-
-                if (key === 'paket') {
+                else if (key === 'paket') {
                   return (
                     <section key={sec.id} className="max-w-6xl mx-auto px-4 py-20 relative z-20">
                       <div className="text-center mb-12">
                         <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">{sec.nama_section || 'Program Belajar Unggulan'}</h3>
-                        <p className="text-gray-500 mt-2">{sec.deskripsi_section || 'Pilih paket bimbingan yang tepat untuk buah hati Anda.'}</p>
+                        <p className="text-gray-500 mt-2 whitespace-pre-wrap">{sec.deskripsi_section || 'Pilih paket bimbingan yang tepat untuk buah hati Anda.'}</p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {paketList.map(paket => (
@@ -958,15 +966,14 @@ export default function App() {
                     </section>
                   );
                 }
-
-                if (key === 'pendaftaran') {
+                else if (key === 'pendaftaran') {
                   return (
                     <section key={sec.id} className="bg-purple-50 py-20 px-4">
                       <div className="max-w-3xl mx-auto bg-white rounded-[2.5rem] shadow-2xl p-10 md:p-14 border border-purple-100 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-amber-400 to-[#581878]"></div>
                         <div className="text-center mb-10">
                           <h3 className="text-4xl font-black text-[#581878] mb-3">{sec.nama_section || 'Daftar Sekarang'}</h3>
-                          <p className="text-gray-500 text-sm">{sec.deskripsi_section || 'Isi formulir singkat di bawah untuk mendaftar secara online.'}</p>
+                          <p className="text-gray-500 text-sm whitespace-pre-wrap">{sec.deskripsi_section || 'Isi formulir singkat di bawah untuk mendaftar secara online.'}</p>
                         </div>
                         <form onSubmit={handleDaftarSubmit} className="space-y-5">
                           <input type="text" placeholder="Nama Lengkap Siswa" required value={formDaftar.nama_murid} onChange={e => setFormDaftar({...formDaftar, nama_murid: e.target.value})} className="w-full p-4 rounded-2xl border text-sm bg-gray-50 font-bold outline-none focus:border-purple-500 transition" />
@@ -982,26 +989,38 @@ export default function App() {
                     </section>
                   );
                 }
-                return null;
+                else {
+                  // GENERIC RENDERER UNTUK SECTION CUSTOM (BARU)
+                  return (
+                    <section key={sec.id} className="py-20 px-4 bg-white text-center">
+                      <div className="max-w-4xl mx-auto">
+                        <h3 className="text-4xl font-black text-[#581878] mb-4 drop-shadow-sm">{sec.nama_section}</h3>
+                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{sec.deskripsi_section}</p>
+                      </div>
+                    </section>
+                  );
+                }
               });
             })()}
           </div>
         )}
       </main>
 
-      {/* MODAL APPROVAL & SETTING PERIODE */}
+      {/* MODAL APPROVAL MULTI-PAKET */}
       {showApproveModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl">
             <h3 className="font-black text-2xl text-[#581878] mb-1">Setujui Siswa</h3>
             <p className="text-xs text-gray-500 mb-6 border-b pb-4">Aktivasi akun & tentukan masa aktif untuk <strong>{approveData.nama_murid}</strong>.</p>
             <form onSubmit={handleSimpanApproval} className="space-y-5">
-              <div>
-                <label className="text-xs font-bold text-gray-600 mb-1.5 block">Pastikan Paket Belajar (Jika Pending 0):</label>
-                <select value={approveData.paket_id} onChange={e => setApproveData({...approveData, paket_id: e.target.value})} className="w-full border p-4 rounded-2xl text-sm bg-gray-50 font-bold mb-1">
-                  <option value="">-- Pilih Paket (Opsional Jika Sudah Ada) --</option>
-                  {paketList.map(p => <option key={p.id} value={p.id}>{p.nama_paket}</option>)}
-                </select>
+              <div className="border p-4 rounded-2xl bg-gray-50 space-y-2">
+                <p className="text-xs font-bold text-gray-600 uppercase mb-2">Paket Belajar (Bisa > 1):</p>
+                {paketList.map(p => (
+                  <label key={p.id} className="text-xs flex items-center cursor-pointer font-bold">
+                    <input type="checkbox" className="mr-2 accent-purple-700 w-4 h-4" checked={approveData.paket_ids.includes(p.id)} onChange={e => { const checked = e.target.checked; setApproveData(prev => ({ ...prev, paket_ids: checked ? [...prev.paket_ids, p.id] : prev.paket_ids.filter(id => id !== p.id) })); }} />
+                    {p.nama_paket}
+                  </label>
+                ))}
               </div>
               <div><label className="text-xs font-bold text-gray-600 mb-1.5 block">Bulan Rekap (Acuan Laporan):</label><input type="month" required value={approveData.bulan_periode} onChange={e => setApproveData({...approveData, bulan_periode: e.target.value})} className="w-full border p-4 rounded-2xl text-sm bg-gray-50 font-bold" /></div>
               <div className="grid grid-cols-2 gap-4">
@@ -1048,6 +1067,32 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL EDIT MENTOR (Delegasi) */}
+      {showEditMentorModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="font-black text-2xl text-[#581878] mb-4">Edit Profile & Delegasi Mentor</h3>
+            <form onSubmit={handleSimpanEditMentor} className="space-y-4">
+              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Nama Mentor:</label><input type="text" required value={editMentorData.nama_mentor} onChange={e => setEditMentorData({...editMentorData, nama_mentor: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 font-bold" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-bold text-gray-600 mb-1 block">No HP:</label><input type="tel" required value={editMentorData.no_hp} onChange={e => setEditMentorData({...editMentorData, no_hp: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" /></div>
+                <div><label className="text-xs font-bold text-gray-600 mb-1 block">Honor / Jam (Rp):</label><input type="number" required value={editMentorData.honor_per_jam} onChange={e => setEditMentorData({...editMentorData, honor_per_jam: Number(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 font-bold text-emerald-700" /></div>
+              </div>
+              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Alamat:</label><textarea value={editMentorData.alamat} onChange={e => setEditMentorData({...editMentorData, alamat: e.target.value})} className="w-full border p-3 rounded-2xl text-sm bg-gray-50" rows="2" /></div>
+              
+              <div className="border p-4 rounded-2xl bg-purple-50 space-y-2">
+                <p className="text-xs font-black text-purple-900 uppercase mb-2">Pendelegasian Tugas Tambahan:</p>
+                <label className="text-xs flex items-center cursor-pointer font-bold"><input type="checkbox" checked={editMentorData.delegasi_inventaris} onChange={e => setEditMentorData({...editMentorData, delegasi_inventaris: e.target.checked, akses_inventaris: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Akses Transaksi Logistik (Modul)</label>
+                <label className="text-xs flex items-center cursor-pointer font-bold"><input type="checkbox" checked={editMentorData.delegasi_perizinan} onChange={e => setEditMentorData({...editMentorData, delegasi_perizinan: e.target.checked, akses_perizinan: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Manajemen Perizinan</label>
+                <label className="text-xs flex items-center cursor-pointer font-bold"><input type="checkbox" checked={editMentorData.delegasi_konten} onChange={e => setEditMentorData({...editMentorData, delegasi_konten: e.target.checked, akses_konten: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Manajemen Konten Publik</label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowEditMentorModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL EDIT SECTION LANDING PAGE */}
       {showEditSectionModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -1071,7 +1116,7 @@ export default function App() {
           <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
             <h3 className="font-black text-xl text-[#581878] mb-4">Tambah Section Landing Baru</h3>
             <form onSubmit={handleTambahSectionBaru} className="space-y-4">
-              <div><label className="text-xs font-bold block mb-1">Key Identifikasi:</label><input type="text" required placeholder="cek_laporan / pendaftaran" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Key Identifikasi:</label><input type="text" required placeholder="cek_laporan / pendaftaran / custom_key" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div><label className="text-xs font-bold block mb-1">Judul Section:</label><input type="text" required value={formTambahSection.nama_section} onChange={e => setFormTambahSection({...formTambahSection, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div><label className="text-xs font-bold block mb-1">Teks / Isian Konten:</label><textarea value={formTambahSection.deskripsi_section} onChange={e => setFormTambahSection({...formTambahSection, deskripsi_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" rows="3"></textarea></div>
               <div><label className="text-xs font-bold block mb-1">Urutan Ke-:</label><input type="number" required value={formTambahSection.urutan} onChange={e => setFormTambahSection({...formTambahSection, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
@@ -1081,7 +1126,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL LAINNYA (TAMBAH MENTOR, INVENTARIS, TRANSAKSI, LOGIN, DLL DIABAIKAN REPETISINYA AGAR KODE TETAP RINGKAS NAMUN FUNGSIONAL. STRUKTURNYA SAMA DENGAN SEBELUMNYA) */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-10 shadow-2xl relative">
