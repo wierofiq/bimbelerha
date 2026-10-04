@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client
-const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -56,13 +55,9 @@ export default function App() {
 
   // UI & Filter States
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [expandedSiswaId, setExpandedSiswaId] = useState(null);
   
   // Filter & Paging States Admin
   const [filterBulanPresensi, setFilterBulanPresensi] = useState('');
-  const [filterMentorPresensi, setFilterMentorPresensi] = useState('');
-  const [searchSiswaBayar, setSearchSiswaBayar] = useState('');
-  const [filterBulanPembayaran, setFilterBulanPembayaran] = useState(new Date().toISOString().slice(0, 7));
 
   // Fitur Tracking Publik (Orang Tua)
   const [trackingQuery, setTrackingQuery] = useState('');
@@ -438,13 +433,6 @@ export default function App() {
   };
 
   // GURU & PRESENSI HANDLERS
-  const handleUpdateProfilGuru = async (e) => {
-    e.preventDefault();
-    await supabase.from('mentor').update({ foto_url: currentMentorProfile.foto_url, no_hp: currentMentorProfile.no_hp, alamat: currentMentorProfile.alamat }).eq('id', currentMentorProfile.id);
-    alert('✅ Profil diperbarui!');
-    fetchAllData();
-  };
-
   const handlePilihSiswaPresensi = (periode) => {
     setSearchSiswaPresensi(`${periode.siswa?.nama_murid} (${periode.paket_belajar?.nama_paket})`);
     setIsDropdownPresensiOpen(false);
