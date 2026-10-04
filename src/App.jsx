@@ -328,7 +328,7 @@ export default function App() {
       const { error: errDb } = await supabase.from('mentor').insert([{ nama_mentor: newMentor.nama_mentor, email: newMentor.email, no_hp: newMentor.no_hp, alamat: newMentor.alamat, honor_per_jam: newMentor.honor_per_jam, status: newMentor.status }]);
       if (errDb) throw errDb;
       alert('✅ Mentor berhasil didaftarkan! Mengarahkan ke WhatsApp...');
-      const waText = `Halo Kak ${newMentor.nama_mentor},\nAkun Portal Pengajar Bimbel ErHa Anda telah aktif.\n\nLogin URL: ${window.location.origin}\nEmail: ${newMentor.email}\nPassword: ${newMentor.password}`;
+      const waText = `Halo Kak ${newMentor.nama_mentor},\nAkun Portal Pengajar Bimbel ErHa Anda telah aktif.\n\nLogin URL: ${window.location.origin}/bimbelerha\nEmail: ${newMentor.email}\nPassword: ${newMentor.password}`;
       window.open(`https://wa.me/${newMentor.no_hp.replace(/^0/, '62')}?text=${encodeURIComponent(waText)}`, '_blank');
       setNewMentor({ nama_mentor: '', email: '', password: '', no_hp: '', alamat: '', honor_per_jam: 25000, status: 'aktif' });
       fetchAllData();
@@ -530,8 +530,8 @@ export default function App() {
     } finally {
       setLoading(false);
       alert('Pendaftaran Berhasil! Mengarahkan ke WhatsApp Admin...');
-      const waText = `Halo Admin Bimbel ErHa,\nSaya ${formDaftar.nama_orang_tua} baru saja mendaftarkan ananda ${formDaftar.nama_murid} via web. Mohon persetujuannya.`;
-      window.open(`https://wa.me/6281915058297?text=${encodeURIComponent(waText)}`, '_blank');
+      const waText = `Halo Admin Bimbel ErHa,\nSaya ${formDaftar.nama_orang_tua} baru saja mendaftarkan ananda ${formDaftar.nama_murid} via web. silahkan dicek.`;
+      window.open(`https://wa.me/6287893898280?text=${encodeURIComponent(waText)}`, '_blank');
       setFormDaftar({ nama_murid: '', nama_orang_tua: '', no_hp: '', alamat: '', jenjang_sekolah: 'TK' });
       setSelectedPaket([]);
     }
