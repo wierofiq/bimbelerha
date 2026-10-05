@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 // ==========================================
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -22,6 +23,9 @@ export default function App() {
   const [mentorSubTab, setMentorSubTab] = useState('daftar'); 
   const [guruTab, setGuruTab] = useState('beranda'); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // State untuk Expanding Row Siswa Aktif
+  const [expandedSiswaId, setExpandedSiswaId] = useState(null);
 
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => {
@@ -190,7 +194,6 @@ export default function App() {
     } catch(err) { console.error('Error fetch global:', err); }
   }
 
-  // Fungsi Inisialisasi Section Default Jika Database Masih Kosong
   const handleInisialisasiDefaultSections = async () => {
     try {
       const defaults = [
@@ -552,13 +555,15 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('landing_sections').update({ 
+      const isLocked = ['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key);
+      const updatePayload = isLocked ? { is_aktif: editSectionData.is_aktif } : { 
         nama_section: editSectionData.nama_section, 
         deskripsi_section: editSectionData.deskripsi_section, 
         urutan: editSectionData.urutan, 
         is_aktif: editSectionData.is_aktif 
-      }).eq('id', editSectionData.id);
-      
+      };
+
+      const { error } = await supabase.from('landing_sections').update(updatePayload).eq('id', editSectionData.id);
       if (error) throw error;
       showToast('Section landing page diperbarui!');
       setShowEditSectionModal(false);
@@ -748,13 +753,14 @@ export default function App() {
                       )}
 
                       {siswaSubTab === 'data' && (
-                        <div className="bg-white rounded-3xl p-6 border shadow-sm overflow-x-auto">
+                        <div className="bg-white rounded-3xl p-6 border shadow-sm overflow-x-auto space-y-4">
+                          <p className="text-xs text-gray-500 italic">💡 Klik pada baris siswa untuk membuka (expand) rincian riwayat presensi & riwayat pembayaran.</p>
                           <table className="w-full text-left text-sm">
                             <thead className="bg-purple-50">
                               <tr>
                                 <th className="p-4 rounded-tl-xl">Nama & Periode Aktif</th>
                                 <th className="p-4 text-center">Progress Sesi</th>
-                                <th className="p-4 text-center">Aksi (Detail / Periode / Hapus)</th>
+                                <th className="p-4 text-center">Aksi Cepat</th>
                                 <th className="p-4 text-center rounded-tr-xl">Rollover</th>
                               </tr>
                             </thead>
@@ -763,32 +769,97 @@ export default function App() {
                                 const pAktif = daftarPeriode.find(p => p.siswa_id === s.id && p.status_periode === 'berjalan');
                                 const count = pAktif ? daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id).length : 0;
                                 const isLate = pAktif?.tanggal_selesai ? new Date() > new Date(pAktif.tanggal_selesai) : false;
+                                const isExpanded = expandedSiswaId === s.id;
+                                const riwayatPresensiSiswa = pAktif ? daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id) : [];
+                                const riwayatPembayaranSiswa = daftarPembayaran.filter(pb => pb.siswa_id === s.id);
 
                                 return (
-                                  <tr key={s.id} className="border-t hover:bg-gray-50 transition-colors">
-                                    <td className="p-4">
-                                      <div className="font-bold text-gray-900">{s.nama_murid} <span className="text-[10px] font-black bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">{s.jenjang_sekolah}</span></div>
-                                      {pAktif ? (
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          {formatTanggalIndo(pAktif.tanggal_mulai)} s/d {formatTanggalIndo(pAktif.tanggal_selesai)} 
-                                          {isLate && <span className="ml-2 text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">(Lewat Tempo)</span>}
+                                  <React.Fragment key={s.id}>
+                                    <tr onClick={() => setExpandedSiswaId(isExpanded ? null : s.id)} className="border-t hover:bg-purple-50/40 cursor-pointer transition-colors">
+                                      <td className="p-4">
+                                        <div className="font-bold text-gray-900 flex items-center gap-2">
+                                          <span className="text-purple-600 font-bold">{isExpanded ? '▼' : '▶'}</span>
+                                          {s.nama_murid} 
+                                          <span className="text-[10px] font-black bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">{s.jenjang_sekolah}</span>
                                         </div>
-                                      ) : <div className="text-xs text-amber-500 font-bold mt-1">Belum ada periode aktif.</div>}
-                                    </td>
-                                    <td className="p-4 text-center">
-                                      <span className="text-xs bg-purple-50 text-purple-900 px-3 py-1.5 rounded-xl font-bold border border-purple-200">{count}/12 Sesi</span>
-                                    </td>
-                                    <td className="p-4 text-center space-x-1.5">
-                                      <button onClick={() => openDetailSiswa(s)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold">Detail</button>
-                                      <button onClick={() => openEditPeriodeModal(s)} className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold">Edit Periode</button>
-                                      <button onClick={() => handleHapusSiswa(s.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg text-xs font-bold">Hapus</button>
-                                    </td>
-                                    <td className="p-4 text-center">
-                                      {pAktif && (count >= 12 || isLate) && (
-                                        <button onClick={() => handleRolloverPeriode(s, pAktif)} className="bg-gradient-to-r from-amber-500 to-amber-600 text-purple-950 font-black px-3 py-1.5 rounded-xl text-xs shadow">🔄 Rollover</button>
-                                      )}
-                                    </td>
-                                  </tr>
+                                        {pAktif ? (
+                                          <div className="text-xs text-gray-500 mt-1 ml-5">
+                                            {formatTanggalIndo(pAktif.tanggal_mulai)} s/d {formatTanggalIndo(pAktif.tanggal_selesai)} 
+                                            {isLate && <span className="ml-2 text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">(Lewat Tempo)</span>}
+                                          </div>
+                                        ) : <div className="text-xs text-amber-500 font-bold mt-1 ml-5">Belum ada periode aktif.</div>}
+                                      </td>
+                                      <td className="p-4 text-center">
+                                        <span className="text-xs bg-purple-50 text-purple-900 px-3 py-1.5 rounded-xl font-bold border border-purple-200">{count}/12 Sesi</span>
+                                      </td>
+                                      <td className="p-4 text-center space-x-1.5" onClick={e => e.stopPropagation()}>
+                                        <button onClick={() => openDetailSiswa(s)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold">Detail</button>
+                                        <button onClick={() => openEditPeriodeModal(s)} className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold">Edit Periode</button>
+                                        <button onClick={() => handleHapusSiswa(s.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg text-xs font-bold">Hapus</button>
+                                      </td>
+                                      <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                                        {pAktif && (count >= 12 || isLate) && (
+                                          <button onClick={() => handleRolloverPeriode(s, pAktif)} className="bg-gradient-to-r from-amber-500 to-amber-600 text-purple-950 font-black px-3 py-1.5 rounded-xl text-xs shadow">🔄 Rollover</button>
+                                        )}
+                                      </td>
+                                    </tr>
+
+                                    {/* EXPANDING ROW RIWAYAT PRESENSI & PEMBAYARAN */}
+                                    {isExpanded && (
+                                      <tr className="bg-purple-50/60 border-t border-b border-purple-200">
+                                        <td colSpan="4" className="p-6">
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                                            <div className="bg-white p-5 rounded-2xl border shadow-sm">
+                                              <h5 className="font-black text-purple-900 text-xs uppercase mb-3 flex items-center gap-1.5">
+                                                <span>📚</span> <span>Riwayat Presensi Sesi ({riwayatPresensiSiswa.length} Sesi)</span>
+                                              </h5>
+                                              <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                                                {riwayatPresensiSiswa.length > 0 ? (
+                                                  riwayatPresensiSiswa.map(ps => (
+                                                    <div key={ps.id} className="p-3 bg-gray-50 rounded-xl border flex justify-between items-center">
+                                                      <div>
+                                                        <p className="font-bold text-gray-900">Sesi {ps.pertemuan_ke} ({formatTanggalIndo(ps.tanggal_pertemuan)})</p>
+                                                        <p className="text-[10px] text-gray-500">{ps.jurnal_materi}</p>
+                                                      </div>
+                                                      <span className={`px-2.5 py-1 rounded-full font-black text-[10px] ${ps.is_hadir ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                                        {ps.is_hadir ? 'Hadir' : 'Izin'}
+                                                      </span>
+                                                    </div>
+                                                  ))
+                                                ) : (
+                                                  <p className="text-gray-400 italic text-center py-6">Belum ada catatan presensi pada periode aktif ini.</p>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            <div className="bg-white p-5 rounded-2xl border shadow-sm">
+                                              <h5 className="font-black text-emerald-700 text-xs uppercase mb-3 flex items-center gap-1.5">
+                                                <span>💳</span> <span>Riwayat Pembayaran ({riwayatPembayaranSiswa.length} Transaksi)</span>
+                                              </h5>
+                                              <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                                                {riwayatPembayaranSiswa.length > 0 ? (
+                                                  riwayatPembayaranSiswa.map(pb => (
+                                                    <div key={pb.id} className="p-3 bg-gray-50 rounded-xl border flex justify-between items-center">
+                                                      <div>
+                                                        <p className="font-bold text-gray-900">{pb.item_bayar}</p>
+                                                        <p className="text-[10px] text-gray-400">{formatTanggalIndo(pb.tanggal_pembayaran)}</p>
+                                                      </div>
+                                                      <div className="text-right">
+                                                        <p className="font-black text-emerald-600 text-xs">Rp {(Number(pb.jumlah_bayar)||0).toLocaleString('id-ID')}</p>
+                                                        <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">{pb.status_pembayaran}</span>
+                                                      </div>
+                                                    </div>
+                                                  ))
+                                                ) : (
+                                                  <p className="text-gray-400 italic text-center py-6">Belum ada catatan pembayaran tercatat.</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
                                 );
                               })}
                             </tbody>
@@ -985,13 +1056,13 @@ export default function App() {
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                           <div>
                             <h3 className="text-xl font-black text-gray-900">Pengaturan Tampilan & Urutan Landing Page</h3>
-                            <p className="text-xs text-gray-500">Kelola visibilitas (tampil/sembunyi) dan urutan section publik.</p>
+                            <p className="text-xs text-gray-500">Kelola visibilitas section. Khusus Portal Cek Orang Tua, Paket Belajar, dan Formulir Pendaftaran hanya dapat diaktifkan atau dinonaktifkan (Enable/Disable).</p>
                           </div>
                           <div className="flex gap-2">
                             {landingSections.length === 0 && (
                               <button onClick={handleInisialisasiDefaultSections} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">⚡ Load Default Sections</button>
                             )}
-                            <button onClick={() => setShowTambahSectionModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Section Landing</button>
+                            <button onClick={() => setShowTambahSectionModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Section Custom</button>
                           </div>
                         </div>
 
@@ -999,18 +1070,28 @@ export default function App() {
                           <table className="w-full text-left text-sm">
                             <thead className="bg-purple-50"><tr><th className="p-3 text-center">Urutan</th><th className="p-3">Key & Nama Section</th><th className="p-3 text-center">Status Tampil</th><th className="p-3 text-center rounded-tr-xl">Aksi</th></tr></thead>
                             <tbody>
-                              {[...landingSections].sort((a,b) => (a.urutan||0) - (b.urutan||0)).map(sec => (
-                                <tr key={sec.id} className="border-t hover:bg-gray-50 transition-colors">
-                                  <td className="p-3 text-center"><input type="number" value={sec.urutan} onChange={(e) => { const val = e.target.value; setLandingSections(prev => prev.map(s => s.id === sec.id ? { ...s, urutan: val } : s)); }} onBlur={(e) => handleUpdateUrutanSection(sec.id, e.target.value)} className="w-12 text-center border p-1 rounded-lg font-black text-purple-900 bg-purple-50" /></td>
-                                  <td className="p-3">
-                                    <span className="text-[10px] font-black uppercase bg-gray-100 text-gray-600 px-2 py-0.5 rounded mr-2">{sec.section_key}</span>
-                                    <span className="font-bold text-gray-900">{sec.nama_section}</span>
-                                    <p className="text-xs text-gray-400 truncate max-w-sm mt-0.5">{sec.deskripsi_section}</p>
-                                  </td>
-                                  <td className="p-3 text-center"><button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1 rounded-full text-xs font-black transition ${sec.is_aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'}`}>{sec.is_aktif ? '✓ Aktif' : '✕ Non-Aktif'}</button></td>
-                                  <td className="p-3 text-center space-x-2"><button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button> <button onClick={() => handleHapusSection(sec.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Hapus</button></td>
-                                </tr>
-                              ))}
+                              {[...landingSections].sort((a,b) => (a.urutan||0) - (b.urutan||0)).map(sec => {
+                                const isLocked = ['cek_laporan', 'paket', 'pendaftaran'].includes(sec.section_key);
+                                return (
+                                  <tr key={sec.id} className="border-t hover:bg-gray-50 transition-colors">
+                                    <td className="p-3 text-center"><input type="number" value={sec.urutan} onChange={(e) => { const val = e.target.value; setLandingSections(prev => prev.map(s => s.id === sec.id ? { ...s, urutan: val } : s)); }} onBlur={(e) => handleUpdateUrutanSection(sec.id, e.target.value)} className="w-12 text-center border p-1 rounded-lg font-black text-purple-900 bg-purple-50" /></td>
+                                    <td className="p-3">
+                                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded mr-2 ${isLocked ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
+                                        {sec.section_key} {isLocked && '(Sistem)'}
+                                      </span>
+                                      <span className="font-bold text-gray-900">{sec.nama_section}</span>
+                                      <p className="text-xs text-gray-400 truncate max-w-sm mt-0.5">{sec.deskripsi_section}</p>
+                                    </td>
+                                    <td className="p-3 text-center"><button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1 rounded-full text-xs font-black transition ${sec.is_aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'}`}>{sec.is_aktif ? '✓ Aktif (Enable)' : '✕ Non-Aktif (Disable)'}</button></td>
+                                    <td className="p-3 text-center space-x-2">
+                                      <button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">
+                                        {isLocked ? 'Ubah Status' : 'Edit Isi'}
+                                      </button> 
+                                      {!isLocked && <button onClick={() => handleHapusSection(sec.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Hapus</button>}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                               {landingSections.length === 0 && (
                                 <tr><td colSpan="4" className="text-center p-8 text-gray-400 italic">Belum ada data section. Klik tombol "Load Default Sections" di atas.</td></tr>
                               )}
@@ -1182,7 +1263,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* LANDING PAGE PUBLIK (Murni berdasarkan tabel landing_sections dan is_aktif/urutan) */
+          /* LANDING PAGE PUBLIK */
           <div className="space-y-0 bg-[#FFFDF0]">
             {(() => {
               const renderSections = landingSections && landingSections.length > 0 
@@ -1306,7 +1387,6 @@ export default function App() {
                   );
                 }
                 else {
-                  // RENDER DINAMIS SECTION CUSTOM DENGAN FORMATTING TEKS
                   return (
                     <section key={sec.id} className="py-20 px-4 bg-white text-center border-b border-gray-100">
                       <div className="max-w-4xl mx-auto space-y-4">
@@ -1442,33 +1522,50 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL EDIT SECTION LANDING PAGE DENGAN FORMATTING TEKS */}
+      {/* MODAL EDIT SECTION LANDING PAGE (DENGAN PEMBATASAN EDIT KONTEN UNTUK BAGIAN KUNCI) */}
       {showEditSectionModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-lg p-8 shadow-2xl">
-            <h3 className="font-black text-xl text-[#581878] mb-2">Edit Konten & Section Landing</h3>
-            <p className="text-xs text-gray-500 mb-4">Gunakan tombol Enter untuk membuat paragraf atau baris baru.</p>
+            <h3 className="font-black text-xl text-[#581878] mb-2">
+              {['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) ? 'Pengaturan Visibilitas Section' : 'Edit Konten & Section Landing'}
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">
+              {['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) 
+                ? 'ℹ️ Section sistem ini diatur agar hanya dapat diaktifkan atau dinonaktifkan (Enable/Disable).'
+                : 'Gunakan tombol Enter untuk membuat paragraf atau baris baru.'}
+            </p>
             
             <form onSubmit={handleSimpanEditSection} className="space-y-4">
               <div>
                 <label className="text-xs font-bold block mb-1">Key Section:</label>
                 <input type="text" readOnly value={editSectionData.section_key} className="w-full border p-3 rounded-2xl text-xs bg-gray-200 font-bold text-gray-600" />
               </div>
+              
               <div>
                 <label className="text-xs font-bold block mb-1">Judul Section Utama:</label>
-                <input type="text" required value={editSectionData.nama_section} onChange={e => setEditSectionData({...editSectionData, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50 outline-none focus:border-purple-600" />
+                <input 
+                  type="text" 
+                  readOnly={['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key)} 
+                  required 
+                  value={editSectionData.nama_section} 
+                  onChange={e => setEditSectionData({...editSectionData, nama_section: e.target.value})} 
+                  className={`w-full border p-3.5 rounded-2xl text-sm font-bold ${['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50 outline-none focus:border-purple-600'}`} 
+                />
               </div>
-              <div>
-                <label className="text-xs font-bold block mb-1">Isi Konten / Deskripsi (Mendukung Multi-paragraf & Enter):</label>
-                <textarea 
-                  value={editSectionData.deskripsi_section} 
-                  onChange={e => setEditSectionData({...editSectionData, deskripsi_section: e.target.value})} 
-                  className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 outline-none focus:border-purple-600 font-sans" 
-                  rows="6" 
-                  placeholder="Tulis deskripsi atau isi konten di sini..."
-                ></textarea>
-                <p className="text-[10px] text-gray-400 mt-1">💡 Tips: Teks yang dienter ke bawah akan otomatis tampil terformat rapi di halaman utama publik.</p>
-              </div>
+
+              {!['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) && (
+                <div>
+                  <label className="text-xs font-bold block mb-1">Isi Konten / Deskripsi (Mendukung Multi-paragraf & Enter):</label>
+                  <textarea 
+                    value={editSectionData.deskripsi_section} 
+                    onChange={e => setEditSectionData({...editSectionData, deskripsi_section: e.target.value})} 
+                    className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 outline-none focus:border-purple-600 font-sans" 
+                    rows="6" 
+                    placeholder="Tulis deskripsi atau isi konten di sini..."
+                  ></textarea>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold block mb-1">Urutan Tampilan:</label>
@@ -1477,7 +1574,7 @@ export default function App() {
                 <div className="flex items-center pt-5">
                   <label className="text-xs flex items-center font-bold cursor-pointer">
                     <input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> 
-                    Tampilkan Section
+                    Tampilkan Section (Enable)
                   </label>
                 </div>
               </div>
@@ -1497,7 +1594,7 @@ export default function App() {
           <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
             <h3 className="font-black text-xl text-[#581878] mb-4">Tambah Section Landing Baru</h3>
             <form onSubmit={handleTambahSectionBaru} className="space-y-4">
-              <div><label className="text-xs font-bold block mb-1">Key Identifikasi:</label><input type="text" required placeholder="cek_laporan / pendaftaran / custom_key" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Key Identifikasi:</label><input type="text" required placeholder="custom_key" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div><label className="text-xs font-bold block mb-1">Judul Section:</label><input type="text" required value={formTambahSection.nama_section} onChange={e => setFormTambahSection({...formTambahSection, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div><label className="text-xs font-bold block mb-1">Teks / Isian Konten:</label><textarea value={formTambahSection.deskripsi_section} onChange={e => setFormTambahSection({...formTambahSection, deskripsi_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" rows="3"></textarea></div>
               <div><label className="text-xs font-bold block mb-1">Urutan Ke-:</label><input type="number" required value={formTambahSection.urutan} onChange={e => setFormTambahSection({...formTambahSection, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
