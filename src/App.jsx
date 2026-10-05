@@ -62,16 +62,13 @@ export default function App() {
 
   // UI Modals
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [showTambahSiswaModal, setShowTambahSiswaModal] = useState(false);
   const [showTambahMentorModal, setShowTambahMentorModal] = useState(false);
   const [showEditMentorModal, setShowEditMentorModal] = useState(false);
   const [showTambahBarangModal, setShowTambahBarangModal] = useState(false);
-  const [showTambahKontenModal, setShowTambahKontenModal] = useState(false);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
   const [showTambahSectionModal, setShowTambahSectionModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
-  const [showEditPembayaranModal, setShowEditPembayaranModal] = useState(false);
   const [showTransaksiModal, setShowTransaksiModal] = useState(false);
   
   // Modal Siswa
@@ -98,9 +95,7 @@ export default function App() {
   const [editSectionData, setEditSectionData] = useState({ id: '', section_key: '', nama_section: '', deskripsi_section: '', urutan: 0, is_aktif: true });
   const [formTambahSection, setFormTambahSection] = useState({ section_key: '', nama_section: '', deskripsi_section: '', urutan: 1, is_aktif: true });
   const [formBarangBaru, setFormBarangBaru] = useState({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
-  const [formKontenBaru, setFormKontenBaru] = useState({ judul: '', tipe: 'artikel', isi: '', video_url: '' });
   const [formGantiPassword, setFormGantiPassword] = useState({ passwordBaru: '', konfirmasiPassword: '' });
-  const [editPembayaranData, setEditPembayaranData] = useState({ id: '', jumlah_bayar: 0, item_bayar: '', catatan: '', tanggal_pembayaran: '' });
   const [formTransaksi, setFormTransaksi] = useState({ barang_id: '', nama_barang: '', tipe_transaksi: 'Masuk', jumlah: 1, keterangan: '' });
   const [formPresensiMentor, setFormPresensiMentor] = useState({ mentor_id: '', tanggal: new Date().toISOString().split('T')[0], total_jam: 0, kegiatan_pembelajaran: '' });
   const [formPembayaran, setFormPembayaran] = useState({ siswa_id: '', tanggal_pembayaran: new Date().toISOString().split('T')[0], items: [], total_bayar: 0, catatan: '' });
@@ -147,7 +142,7 @@ export default function App() {
       setCurrentMentorProfile(null);
     } else {
       setUserRole('guru');
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('mentor')
         .select('*')
         .ilike('email', authUser.email.trim())
@@ -156,7 +151,6 @@ export default function App() {
       if (data) {
         setCurrentMentorProfile(data);
       } else {
-        console.warn("Profil mentor tidak ditemukan untuk email:", authUser.email);
         setCurrentMentorProfile(null);
       }
     }
@@ -210,7 +204,9 @@ export default function App() {
     
     if (!matchedSiswa) { setOrtuSearchResult(null); return showToast('Data siswa/ortu tidak ditemukan.', 'error'); }
 
-    const pAktif = daftarPeriode.find(p => p.siswa_id === matchedSiswa.id && p.status_periode === 'berjalan');
+    let pAktif = daftarPeriode.find(p => p.siswa_id === matchedSiswa.id && p.status_periode === 'berjalan');
+    if (!pAktif) pAktif = daftarPeriode.find(p => p.siswa_id === matchedSiswa.id);
+
     setOrtuSearchResult({
       siswa: matchedSiswa, periode: pAktif,
       presensi: pAktif ? daftarPresensiSiswa.filter(ps => ps.periode_id === pAktif.id) : [],
@@ -240,7 +236,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // 5. HANDLERS - SISWA & PENDAFTARAN
+  // HANDLERS - SISWA & PENDAFTARAN
   const handleDaftarSubmit = async (e) => {
     e.preventDefault();
     if (selectedPaket.length === 0) return showToast('Pilih minimal satu paket!', 'error');
@@ -393,7 +389,7 @@ export default function App() {
     } catch(err) { showToast('Gagal rollover: ' + err.message, 'error'); } finally { setLoading(false); }
   };
 
-  // 6. HANDLERS - MENTOR
+  // HANDLERS - MENTOR
   const handleTambahMentorSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -454,7 +450,7 @@ export default function App() {
     } catch (err) { showToast('Gagal menyimpan presensi mentor: ' + err.message, 'error'); }
   };
 
-  // 7. PEMBAYARAN, LOGISTIK & SETUP
+  // PEMBAYARAN, LOGISTIK & SETUP
   const filteredPembayaran = daftarPembayaran.filter(pb => {
     const matchBulan = filterBulanPembayaran ? pb.tanggal_pembayaran?.startsWith(filterBulanPembayaran) : true;
     const matchNama = searchSiswaPembayaranFilter ? pb.siswa?.nama_murid?.toLowerCase().includes(searchSiswaPembayaranFilter.toLowerCase()) : true;
@@ -490,11 +486,19 @@ export default function App() {
 
   const handleTambahBarangBaru = async (e) => {
     e.preventDefault();
-    await supabase.from('inventaris_logistik').insert([formBarangBaru]);
-    showToast('Barang inventaris baru ditambahkan!');
-    setShowTambahBarangModal(false);
-    setFormBarangBaru({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
-    fetchAllData();
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('inventaris_logistik').insert([formBarangBaru]);
+      if (error) throw error;
+      showToast('Barang inventaris baru ditambahkan!');
+      setShowTambahBarangModal(false);
+      setFormBarangBaru({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
+      fetchAllData();
+    } catch(err) {
+      showToast('Gagal tambah barang: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openTransaksiModal = (barang, tipe) => {
@@ -505,16 +509,33 @@ export default function App() {
   const handleSimpanTransaksiInventaris = async (e) => {
     e.preventDefault();
     const barang = daftarInventaris.find(b => b.id === formTransaksi.barang_id);
-    if (!barang) return;
-    const newStock = formTransaksi.tipe_transaksi === 'Masuk' ? barang.stok + formTransaksi.jumlah : barang.stok - formTransaksi.jumlah;
+    if (!barang) return showToast('Barang tidak valid.', 'error');
+    
+    const jumlahTrans = Number(formTransaksi.jumlah) || 0;
+    const newStock = formTransaksi.tipe_transaksi === 'Masuk' ? barang.stok + jumlahTrans : barang.stok - jumlahTrans;
     if (newStock < 0) return showToast('Error: Stok tidak mencukupi untuk barang keluar!', 'error');
+    
+    setLoading(true);
     try {
-      await supabase.from('inventaris_logistik').update({ stok: newStock }).eq('id', barang.id);
-      await supabase.from('transaksi_logistik').insert([{ barang_id: barang.id, tipe_transaksi: formTransaksi.tipe_transaksi, jumlah: formTransaksi.jumlah, keterangan: formTransaksi.keterangan }]);
-      showToast(`Transaksi ${formTransaksi.tipe_transaksi} (${formTransaksi.jumlah} Pcs) berhasil dicatat.`);
+      const { error: errInv } = await supabase.from('inventaris_logistik').update({ stok: newStock }).eq('id', barang.id);
+      if (errInv) throw errInv;
+
+      const { error: errTrans } = await supabase.from('transaksi_logistik').insert([{ 
+        barang_id: barang.id, 
+        tipe_transaksi: formTransaksi.tipe_transaksi, 
+        jumlah: jumlahTrans, 
+        keterangan: formTransaksi.keterangan || '-' 
+      }]);
+      if (errTrans) throw errTrans;
+
+      showToast(`Transaksi ${formTransaksi.tipe_transaksi} (${jumlahTrans} Pcs) berhasil dicatat.`);
       setShowTransaksiModal(false);
       fetchAllData();
-    } catch(err) { showToast(err.message, 'error'); }
+    } catch(err) { 
+      showToast('Gagal transaksi: ' + err.message, 'error'); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSimpanPengaturanWeb = async (e) => {
@@ -531,10 +552,24 @@ export default function App() {
 
   const handleSimpanEditSection = async (e) => {
     e.preventDefault();
-    await supabase.from('landing_sections').update({ nama_section: editSectionData.nama_section, deskripsi_section: editSectionData.deskripsi_section, urutan: editSectionData.urutan, is_aktif: editSectionData.is_aktif }).eq('id', editSectionData.id);
-    showToast('Pengaturan section landing page diperbarui!');
-    setShowEditSectionModal(false);
-    fetchPengaturanWeb();
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('landing_sections').update({ 
+        nama_section: editSectionData.nama_section, 
+        deskripsi_section: editSectionData.deskripsi_section, 
+        urutan: editSectionData.urutan, 
+        is_aktif: editSectionData.is_aktif 
+      }).eq('id', editSectionData.id);
+      
+      if (error) throw error;
+      showToast('Pengaturan section landing page diperbarui!');
+      setShowEditSectionModal(false);
+      await fetchPengaturanWeb();
+    } catch(err) {
+      showToast('Gagal memperbarui section: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateUrutanSection = async (secId, newUrutan) => {
@@ -908,20 +943,37 @@ export default function App() {
                   )}
 
                   {adminTab === 'modul' && (
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
-                      <div className="flex justify-between items-center">
-                        <div><h3 className="text-2xl font-black text-gray-900">Inventaris & Modul 📦</h3></div>
-                        <button onClick={() => setShowTambahBarangModal(true)} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow">+ Barang Baru</button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                        {daftarInventaris.map(b => (
-                          <div key={b.id} className="border border-gray-100 p-6 rounded-3xl bg-white shadow-sm flex flex-col justify-between hover:shadow-xl transition-shadow">
-                            <div><span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">{b.kategori}</span><h5 className="font-bold text-gray-900 mt-4 text-lg leading-tight">{b.nama_barang}</h5></div>
-                            <div className="mt-6"><div className="bg-gray-50 border p-3 rounded-2xl mb-4 text-center"><p className="text-[10px] text-gray-400 font-bold uppercase">Stok Gudang</p><p className="text-2xl font-black text-gray-800">{b.stok}</p></div>
-                              <div className="flex gap-2"><button onClick={() => openTransaksiModal(b, 'Masuk')} className="flex-1 bg-emerald-100 text-emerald-800 text-xs font-black py-2.5 rounded-xl transition">IN [+]</button><button onClick={() => openTransaksiModal(b, 'Keluar')} className="flex-1 bg-red-100 text-red-800 text-xs font-black py-2.5 rounded-xl transition">OUT [-]</button></div>
-                            </div>
+                    <div className="space-y-6">
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="text-2xl font-black text-gray-900">Inventaris & Modul 📦</h3>
+                            <p className="text-xs text-gray-500 mt-1">Kelola stok barang dan modul pembelajaran bimbel.</p>
                           </div>
-                        ))}
+                          <button onClick={() => setShowTambahBarangModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow transition">+ Barang Baru</button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                          {daftarInventaris.map(b => (
+                            <div key={b.id} className="border border-gray-100 p-6 rounded-3xl bg-white shadow-sm flex flex-col justify-between hover:shadow-xl transition-shadow">
+                              <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">{b.kategori}</span>
+                                <h5 className="font-bold text-gray-900 mt-4 text-lg leading-tight">{b.nama_barang}</h5>
+                                {b.deskripsi && <p className="text-xs text-gray-500 mt-1">{b.deskripsi}</p>}
+                              </div>
+                              <div className="mt-6">
+                                <div className="bg-gray-50 border p-3 rounded-2xl mb-4 text-center">
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase">Stok Gudang</p>
+                                  <p className="text-2xl font-black text-gray-800">{b.stok}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button onClick={() => openTransaksiModal(b, 'Masuk')} className="flex-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-black py-2.5 rounded-xl transition">IN [+]</button>
+                                  <button onClick={() => openTransaksiModal(b, 'Keluar')} className="flex-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black py-2.5 rounded-xl transition">OUT [-]</button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1162,22 +1214,44 @@ export default function App() {
                         {ortuSearchResult && (
                           <div className="mt-8 pt-6 border-t border-gray-100 space-y-6 animate-fade-in">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-purple-50 p-5 rounded-2xl border border-purple-100">
-                              <div><h4 className="text-xl font-black text-gray-900 mt-1">{ortuSearchResult.siswa.nama_murid}</h4></div>
+                              <div>
+                                <span className="text-[10px] font-black bg-purple-200 text-purple-900 px-2.5 py-1 rounded-full uppercase">Status: {ortuSearchResult.siswa.status}</span>
+                                <h4 className="text-xl font-black text-gray-900 mt-2">{ortuSearchResult.siswa.nama_murid}</h4>
+                                <p className="text-xs text-gray-500">Jenjang: {ortuSearchResult.siswa.jenjang_sekolah} | Wali: {ortuSearchResult.siswa.nama_orang_tua || '-'}</p>
+                              </div>
                             </div>
-                            {ortuSearchResult.periode ? (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div className="border p-5 rounded-2xl bg-gray-50"><h5 className="font-black text-[#581878] text-xs uppercase mb-3 flex items-center gap-1.5"><span>📚</span> <span>Riwayat Kehadiran ({ortuSearchResult.presensi.length})</span></h5>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto text-xs">{ortuSearchResult.presensi.map(ps => (<div key={ps.id} className="bg-white p-3 rounded-xl border flex justify-between items-center"><div><p className="font-bold text-gray-900">Sesi {ps.pertemuan_ke} ({formatTanggalIndo(ps.tanggal_pertemuan)})</p></div><span className={`px-2.5 py-1 rounded-full font-black text-[10px] ${ps.is_hadir ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{ps.is_hadir ? 'Hadir' : 'Izin'}</span></div>))}</div>
-                                  </div>
-                                  <div className="border p-5 rounded-2xl bg-gray-50"><h5 className="font-black text-emerald-700 text-xs uppercase mb-3 flex items-center gap-1.5"><span>💳</span> <span>Riwayat & Status Pembayaran</span></h5>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto text-xs">{ortuSearchResult.pembayaran.map(pb => (<div key={pb.id} className="bg-white p-3 rounded-xl border flex justify-between items-center"><div><p className="font-bold text-gray-900">{pb.item_bayar}</p><p className="text-[10px] text-gray-400">{formatTanggalIndo(pb.tanggal_pembayaran)}</p></div><div className="text-right"><p className="font-black text-emerald-600 text-xs">Rp {(Number(pb.jumlah_bayar)||0).toLocaleString('id-ID')}</p></div></div>))}</div>
-                                  </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="border p-5 rounded-2xl bg-gray-50">
+                                <h5 className="font-black text-[#581878] text-xs uppercase mb-3 flex items-center gap-1.5"><span>📚</span> <span>Riwayat Kehadiran ({ortuSearchResult.presensi.length} Sesi)</span></h5>
+                                <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                                  {ortuSearchResult.presensi.length > 0 ? (
+                                    ortuSearchResult.presensi.map(ps => (
+                                      <div key={ps.id} className="bg-white p-3 rounded-xl border flex justify-between items-center">
+                                        <div><p className="font-bold text-gray-900">Sesi {ps.pertemuan_ke} ({formatTanggalIndo(ps.tanggal_pertemuan)})</p><p className="text-[10px] text-gray-500">{ps.jurnal_materi}</p></div>
+                                        <span className={`px-2.5 py-1 rounded-full font-black text-[10px] ${ps.is_hadir ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{ps.is_hadir ? 'Hadir' : 'Izin'}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-gray-400 italic text-center py-6">Belum ada catatan presensi untuk periode ini.</p>
+                                  )}
                                 </div>
                               </div>
-                            ) : (
-                              <div className="bg-amber-50 p-4 rounded-2xl text-center text-xs font-bold text-amber-800">Siswa aktif namun belum memiliki periode belajar berjalan. Hubungi Admin Bimbingan.</div>
-                            )}
+                              <div className="border p-5 rounded-2xl bg-gray-50">
+                                <h5 className="font-black text-emerald-700 text-xs uppercase mb-3 flex items-center gap-1.5"><span>💳</span> <span>Riwayat & Status Pembayaran</span></h5>
+                                <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                                  {ortuSearchResult.pembayaran.length > 0 ? (
+                                    ortuSearchResult.pembayaran.map(pb => (
+                                      <div key={pb.id} className="bg-white p-3 rounded-xl border flex justify-between items-center">
+                                        <div><p className="font-bold text-gray-900">{pb.item_bayar}</p><p className="text-[10px] text-gray-400">{formatTanggalIndo(pb.tanggal_pembayaran)}</p></div>
+                                        <div className="text-right"><p className="font-black text-emerald-600 text-xs">Rp {(Number(pb.jumlah_bayar)||0).toLocaleString('id-ID')}</p></div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-gray-400 italic text-center py-6">Belum ada catatan pembayaran tercatat.</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1226,12 +1300,12 @@ export default function App() {
                   );
                 }
                 else {
-                  // RENDER DINAMIS SECTION CUSTOM
+                  // RENDER DINAMIS SECTION CUSTOM DENGAN FORMATTING TEKS
                   return (
                     <section key={sec.id} className="py-20 px-4 bg-white text-center border-b border-gray-100">
                       <div className="max-w-4xl mx-auto space-y-4">
                         <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">{sec.nama_section}</h3>
-                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{sec.deskripsi_section}</p>
+                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-base text-left md:text-center px-4">{sec.deskripsi_section}</p>
                       </div>
                     </section>
                   );
@@ -1362,18 +1436,50 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL EDIT SECTION LANDING PAGE */}
+      {/* MODAL EDIT SECTION LANDING PAGE DENGAN FORMATTING TEKS */}
       {showEditSectionModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
-            <h3 className="font-black text-xl text-[#581878] mb-4">Edit Section Landing Page</h3>
+          <div className="bg-white rounded-[2rem] w-full max-w-lg p-8 shadow-2xl">
+            <h3 className="font-black text-xl text-[#581878] mb-2">Edit Konten & Section Landing</h3>
+            <p className="text-xs text-gray-500 mb-4">Gunakan tombol Enter untuk membuat paragraf atau baris baru.</p>
+            
             <form onSubmit={handleSimpanEditSection} className="space-y-4">
-              <div><label className="text-xs font-bold block mb-1">Key Section:</label><input type="text" readOnly value={editSectionData.section_key} className="w-full border p-3 rounded-2xl text-xs bg-gray-200 font-bold" /></div>
-              <div><label className="text-xs font-bold block mb-1">Judul Section:</label><input type="text" required value={editSectionData.nama_section} onChange={e => setEditSectionData({...editSectionData, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
-              <div><label className="text-xs font-bold block mb-1">Teks / Isian Konten:</label><textarea value={editSectionData.deskripsi_section} onChange={e => setEditSectionData({...editSectionData, deskripsi_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" rows="3" placeholder="Masukkan teks deskripsi publik..."></textarea></div>
-              <div><label className="text-xs font-bold block mb-1">Urutan Tampilan (1, 2, 3...):</label><input type="number" required value={editSectionData.urutan} onChange={e => setEditSectionData({...editSectionData, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
-              <label className="text-xs flex items-center font-bold cursor-pointer pt-1"><input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> Tampilkan Section Ini</label>
-              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowEditSectionModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
+              <div>
+                <label className="text-xs font-bold block mb-1">Key Section:</label>
+                <input type="text" readOnly value={editSectionData.section_key} className="w-full border p-3 rounded-2xl text-xs bg-gray-200 font-bold text-gray-600" />
+              </div>
+              <div>
+                <label className="text-xs font-bold block mb-1">Judul Section Utama:</label>
+                <input type="text" required value={editSectionData.nama_section} onChange={e => setEditSectionData({...editSectionData, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50 outline-none focus:border-purple-600" />
+              </div>
+              <div>
+                <label className="text-xs font-bold block mb-1">Isi Konten / Deskripsi (Mendukung Multi-paragraf & Enter):</label>
+                <textarea 
+                  value={editSectionData.deskripsi_section} 
+                  onChange={e => setEditSectionData({...editSectionData, deskripsi_section: e.target.value})} 
+                  className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 outline-none focus:border-purple-600 font-sans" 
+                  rows="6" 
+                  placeholder="Tulis deskripsi atau isi konten di sini..."
+                ></textarea>
+                <p className="text-[10px] text-gray-400 mt-1">💡 Tips: Teks yang dienter ke bawah akan otomatis tampil terformat rapi di halaman utama publik.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold block mb-1">Urutan Tampilan:</label>
+                  <input type="number" required value={editSectionData.urutan} onChange={e => setEditSectionData({...editSectionData, urutan: parseInt(e.target.value)})} className="w-full border p-3 rounded-2xl text-sm font-bold bg-gray-50" />
+                </div>
+                <div className="flex items-center pt-5">
+                  <label className="text-xs flex items-center font-bold cursor-pointer">
+                    <input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> 
+                    Tampilkan Section
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowEditSectionModal(false)} className="px-5 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl text-xs font-bold">Batal</button>
+                <button type="submit" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow">Simpan Perubahan</button>
+              </div>
             </form>
           </div>
         </div>
@@ -1390,6 +1496,54 @@ export default function App() {
               <div><label className="text-xs font-bold block mb-1">Teks / Isian Konten:</label><textarea value={formTambahSection.deskripsi_section} onChange={e => setFormTambahSection({...formTambahSection, deskripsi_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" rows="3"></textarea></div>
               <div><label className="text-xs font-bold block mb-1">Urutan Ke-:</label><input type="number" required value={formTambahSection.urutan} onChange={e => setFormTambahSection({...formTambahSection, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowTambahSectionModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH BARANG INVENTARIS */}
+      {showTambahBarangModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl">
+            <h3 className="font-black text-2xl text-[#581878] mb-4">Tambah Barang Inventaris Baru</h3>
+            <form onSubmit={handleTambahBarangBaru} className="space-y-4">
+              <input type="text" placeholder="Nama Barang / Modul" required value={formBarangBaru.nama_barang} onChange={e => setFormBarangBaru({...formBarangBaru, nama_barang: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 font-bold" />
+              <select value={formBarangBaru.kategori} onChange={e => setFormBarangBaru({...formBarangBaru, kategori: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 font-bold">
+                <option value="Modul">Kategori: Modul</option>
+                <option value="Buku">Kategori: Buku</option>
+                <option value="Alat Tulis">Kategori: Alat Tulis</option>
+                <option value="Lainnya">Kategori: Lainnya</option>
+              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-bold block mb-1">Stok Awal:</label><input type="number" required value={formBarangBaru.stok} onChange={e => setFormBarangBaru({...formBarangBaru, stok: parseInt(e.target.value)})} className="w-full border p-3 rounded-2xl text-sm bg-gray-50 font-bold" /></div>
+                <div><label className="text-xs font-bold block mb-1">Harga Satuan (Rp):</label><input type="number" value={formBarangBaru.harga_satuan} onChange={e => setFormBarangBaru({...formBarangBaru, harga_satuan: Number(e.target.value)})} className="w-full border p-3 rounded-2xl text-sm bg-gray-50 font-bold" /></div>
+              </div>
+              <textarea placeholder="Deskripsi atau catatan barang..." value={formBarangBaru.deskripsi} onChange={e => setFormBarangBaru({...formBarangBaru, deskripsi: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" rows="2"></textarea>
+              <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowTambahBarangModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black shadow">Simpan Barang</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TRANSAKSI INVENTARIS (MASUK / KELUAR) */}
+      {showTransaksiModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
+            <h3 className="font-black text-xl text-[#581878] mb-2">Transaksi Stok Barang</h3>
+            <p className="text-xs text-gray-500 mb-4">Barang: <strong>{formTransaksi.nama_barang}</strong> ({formTransaksi.tipe_transaksi})</p>
+            <form onSubmit={handleSimpanTransaksiInventaris} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold block mb-1">Jumlah Pcs ({formTransaksi.tipe_transaksi}):</label>
+                <input type="number" min="1" required value={formTransaksi.jumlah} onChange={e => setFormTransaksi({...formTransaksi, jumlah: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" />
+              </div>
+              <div>
+                <label className="text-xs font-bold block mb-1">Keterangan / Keperluan:</label>
+                <input type="text" placeholder="Contoh: Penambahan cetakan baru" value={formTransaksi.keterangan} onChange={e => setFormTransaksi({...formTransaksi, keterangan: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <button type="button" onClick={() => setShowTransaksiModal(false)} className="px-4 py-2.5 bg-gray-200 rounded-xl text-xs font-bold">Batal</button>
+                <button type="submit" className="px-5 py-2.5 bg-[#581878] text-white rounded-xl text-xs font-black shadow">Simpan Transaksi</button>
+              </div>
             </form>
           </div>
         </div>
