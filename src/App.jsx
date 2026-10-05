@@ -6,7 +6,6 @@ import { createClient } from '@supabase/supabase-js';
 // ==========================================
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
-
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -95,8 +94,12 @@ export default function App() {
 
   const [formTambahMentor, setFormTambahMentor] = useState({ nama_mentor: '', email: '', no_hp: '', alamat: '', password: '', honor_per_jam: 35000, akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false });
   const [editMentorData, setEditMentorData] = useState({ id: '', nama_mentor: '', no_hp: '', alamat: '', honor_per_jam: 35000, akses_inventaris: false, delegasi_inventaris: false, akses_perizinan: false, delegasi_perizinan: false, akses_konten: false, delegasi_konten: false });
-  const [editSectionData, setEditSectionData] = useState({ id: '', section_key: '', nama_section: '', deskripsi_section: '', urutan: 0, is_aktif: true });
-  const [formTambahSection, setFormTambahSection] = useState({ section_key: '', nama_section: '', deskripsi_section: '', urutan: 1, is_aktif: true });
+  
+  // Edit Section & Grid Items State
+  const [editSectionData, setEditSectionData] = useState({ id: '', section_key: '', nama_section: '', deskripsi_section: '', urutan: 0, is_aktif: true, items: [] });
+  const [formItemGaleri, setFormItemGaleri] = useState({ tipe: 'instagram', judul: '', url_media: '', keterangan: '' });
+
+  const [formTambahSection, setFormTambahSection] = useState({ section_key: '', nama_section: '', deskripsi_section: '', urutan: 1, is_aktif: true, items: [] });
   const [formBarangBaru, setFormBarangBaru] = useState({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
   const [formGantiPassword, setFormGantiPassword] = useState({ passwordBaru: '', konfirmasiPassword: '' });
   const [formTransaksi, setFormTransaksi] = useState({ barang_id: '', nama_barang: '', tipe_transaksi: 'Masuk', jumlah: 1, keterangan: '' });
@@ -112,6 +115,11 @@ export default function App() {
     return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
   };
   const canMentorTransactInventory = currentMentorProfile && (currentMentorProfile.akses_inventaris || currentMentorProfile.delegasi_inventaris);
+
+  // Helper WYSIWYG Command Executor
+  const formatTextWysiwyg = (command) => {
+    document.execCommand(command, false, null);
+  };
 
   // 2. EFFECTS & PROFILE RESOLUTION
   useEffect(() => {
@@ -197,10 +205,11 @@ export default function App() {
   const handleInisialisasiDefaultSections = async () => {
     try {
       const defaults = [
-        { section_key: 'hero', nama_section: 'Bimbingan Belajar Modern', deskripsi_section: 'Rumah Hebat, Bersahabat & Berprestasi', urutan: 1, is_aktif: true },
-        { section_key: 'cek_laporan', nama_section: 'Cek Rekap Laporan & Presensi Siswa', deskripsi_section: 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.', urutan: 2, is_aktif: true },
-        { section_key: 'paket', nama_section: 'Program Belajar Unggulan', deskripsi_section: 'Pilih paket bimbingan yang tepat untuk buah hati Anda.', urutan: 3, is_aktif: true },
-        { section_key: 'pendaftaran', nama_section: 'Daftar Sekarang', deskripsi_section: 'Isi formulir singkat di bawah untuk mendaftar secara online.', urutan: 4, is_aktif: true }
+        { section_key: 'hero', nama_section: 'Bimbingan Belajar Modern', deskripsi_section: 'Rumah Hebat, Bersahabat & Berprestasi', urutan: 1, is_aktif: true, items: [] },
+        { section_key: 'cek_laporan', nama_section: 'Cek Rekap Laporan & Presensi Siswa', deskripsi_section: 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.', urutan: 2, is_aktif: true, items: [] },
+        { section_key: 'galeri_sosmed', nama_section: 'Galeri & Postingan Sosial Media', deskripsi_section: 'Kumpulan momen seru dari Instagram, YouTube, dan TikTok.', urutan: 3, is_aktif: true, items: [] },
+        { section_key: 'paket', nama_section: 'Program Belajar Unggulan', deskripsi_section: 'Pilih paket bimbingan yang tepat untuk buah hati Anda.', urutan: 4, is_aktif: true, items: [] },
+        { section_key: 'pendaftaran', nama_section: 'Daftar Sekarang', deskripsi_section: 'Isi formulir singkat di bawah untuk mendaftar secara online.', urutan: 5, is_aktif: true, items: [] }
       ];
       await supabase.from('landing_sections').insert(defaults);
       showToast('Section default berhasil dimuat!');
@@ -547,7 +556,18 @@ export default function App() {
   };
 
   const openEditSectionModal = (sec) => {
-    setEditSectionData({ id: sec.id, section_key: sec.section_key, nama_section: sec.nama_section, deskripsi_section: sec.deskripsi_section || '', urutan: sec.urutan || 0, is_aktif: sec.is_aktif ?? true });
+    const editorEl = document.getElementById('wysiwyg-editor-area');
+    if (editorEl) editorEl.innerHTML = sec.deskripsi_section || '';
+    
+    setEditSectionData({ 
+      id: sec.id, 
+      section_key: sec.section_key, 
+      nama_section: sec.nama_section, 
+      deskripsi_section: sec.deskripsi_section || '', 
+      urutan: sec.urutan || 0, 
+      is_aktif: sec.is_aktif ?? true,
+      items: sec.items || [] 
+    });
     setShowEditSectionModal(true);
   };
 
@@ -555,12 +575,16 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     try {
+      const editorEl = document.getElementById('wysiwyg-editor-area');
+      const htmlContent = editorEl ? editorEl.innerHTML : editSectionData.deskripsi_section;
+
       const isLocked = ['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key);
       const updatePayload = isLocked ? { is_aktif: editSectionData.is_aktif } : { 
         nama_section: editSectionData.nama_section, 
-        deskripsi_section: editSectionData.deskripsi_section, 
+        deskripsi_section: htmlContent, 
         urutan: editSectionData.urutan, 
-        is_aktif: editSectionData.is_aktif 
+        is_aktif: editSectionData.is_aktif,
+        items: editSectionData.items 
       };
 
       const { error } = await supabase.from('landing_sections').update(updatePayload).eq('id', editSectionData.id);
@@ -569,6 +593,17 @@ export default function App() {
       setShowEditSectionModal(false);
       await fetchPengaturanWeb();
     } catch(err) { showToast('Gagal memperbarui section: ' + err.message, 'error'); } finally { setLoading(false); }
+  };
+
+  const handleTambahItemGaleri = () => {
+    if (!formItemGaleri.url_media) return showToast('URL Media atau Link Postingan wajib diisi!', 'error');
+    const newItem = { id: 'item_' + Date.now(), ...formItemGaleri };
+    setEditSectionData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+    setFormItemGaleri({ tipe: 'instagram', judul: '', url_media: '', keterangan: '' });
+  };
+
+  const handleHapusItemGaleri = (itemId) => {
+    setEditSectionData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== itemId) }));
   };
 
   const handleUpdateUrutanSection = async (secId, newUrutan) => {
@@ -586,10 +621,10 @@ export default function App() {
   const handleTambahSectionBaru = async (e) => {
     e.preventDefault();
     if (!formTambahSection.section_key || !formTambahSection.nama_section) return showToast('Isi Key dan Nama Section terlebih dahulu!', 'error');
-    await supabase.from('landing_sections').insert([formTambahSection]);
+    await supabase.from('landing_sections').insert([{ ...formTambahSection, items: [] }]);
     showToast('Section landing page baru ditambahkan!');
     setShowTambahSectionModal(false);
-    setFormTambahSection({ section_key: '', nama_section: '', deskripsi_section: '', urutan: landingSections.length + 1, is_aktif: true });
+    setFormTambahSection({ section_key: '', nama_section: '', deskripsi_section: '', urutan: landingSections.length + 1, is_aktif: true, items: [] });
     fetchPengaturanWeb();
   };
 
@@ -1056,7 +1091,7 @@ export default function App() {
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                           <div>
                             <h3 className="text-xl font-black text-gray-900">Pengaturan Tampilan & Urutan Landing Page</h3>
-                            <p className="text-xs text-gray-500">Kelola visibilitas section. Khusus Portal Cek Orang Tua, Paket Belajar, dan Formulir Pendaftaran hanya dapat diaktifkan atau dinonaktifkan (Enable/Disable).</p>
+                            <p className="text-xs text-gray-500">Kelola visibilitas section dan grid galeri sosmed (Instagram/YouTube/TikTok).</p>
                           </div>
                           <div className="flex gap-2">
                             {landingSections.length === 0 && (
@@ -1080,12 +1115,12 @@ export default function App() {
                                         {sec.section_key} {isLocked && '(Sistem)'}
                                       </span>
                                       <span className="font-bold text-gray-900">{sec.nama_section}</span>
-                                      <p className="text-xs text-gray-400 truncate max-w-sm mt-0.5">{sec.deskripsi_section}</p>
+                                      <p className="text-xs text-gray-400 truncate max-w-sm mt-0.5">{sec.deskripsi_section?.replace(/<[^>]*>?/gm, '')}</p>
                                     </td>
                                     <td className="p-3 text-center"><button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1 rounded-full text-xs font-black transition ${sec.is_aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'}`}>{sec.is_aktif ? '✓ Aktif (Enable)' : '✕ Non-Aktif (Disable)'}</button></td>
                                     <td className="p-3 text-center space-x-2">
                                       <button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">
-                                        {isLocked ? 'Ubah Status' : 'Edit Isi'}
+                                        {['cek_laporan', 'paket', 'pendaftaran'].includes(sec.section_key) ? 'Ubah Status' : 'Edit Konten & Grid'}
                                       </button> 
                                       {!isLocked && <button onClick={() => handleHapusSection(sec.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Hapus</button>}
                                     </td>
@@ -1279,7 +1314,7 @@ export default function App() {
                       <div className="max-w-4xl mx-auto space-y-6">
                         <span className="inline-block bg-amber-400 text-purple-950 text-xs font-black px-5 py-2 rounded-full uppercase shadow-lg tracking-widest">Bimbingan Belajar Modern 🚀</span>
                         <h2 className="text-5xl md:text-7xl font-black tracking-tight leading-tight drop-shadow-md">{sec.nama_section || pengaturanWeb.judul_utama}</h2>
-                        <p className="text-xl text-purple-200 font-medium whitespace-pre-wrap">{sec.deskripsi_section || pengaturanWeb.sub_judul}</p>
+                        <div className="text-xl text-purple-200 font-medium" dangerouslySetInnerHTML={{ __html: sec.deskripsi_section || pengaturanWeb.sub_judul }}></div>
                       </div>
                     </section>
                   );
@@ -1291,7 +1326,7 @@ export default function App() {
                         <div className="text-center mb-6">
                           <span className="bg-purple-100 text-[#581878] text-[10px] font-black px-3 py-1 rounded-full uppercase">Fitur Wali Murid 👨‍👩‍👧‍👦</span>
                           <h3 className="text-2xl font-black text-gray-900 mt-2">{sec.nama_section || 'Cek Rekap Laporan & Presensi Siswa'}</h3>
-                          <p className="text-xs text-gray-500 whitespace-pre-wrap">{sec.deskripsi_section || 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.'}</p>
+                          <div className="text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: sec.deskripsi_section || 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.' }}></div>
                         </div>
                         <form onSubmit={handleCariLaporanOrtu} className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
                           <input type="text" placeholder="Ketik Nama Siswa atau Nomor HP Wali..." value={searchOrtuQuery} onChange={e => setSearchOrtuQuery(e.target.value)} className="flex-1 p-4 rounded-2xl border border-gray-300 text-sm font-bold bg-gray-50 outline-none focus:border-purple-600 transition" />
@@ -1345,12 +1380,62 @@ export default function App() {
                     </section>
                   );
                 }
+                else if (key === 'galeri_sosmed') {
+                  return (
+                    <section key={sec.id} className="max-w-7xl mx-auto px-4 py-20">
+                      <div className="text-center mb-12 space-y-3">
+                        <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">{sec.nama_section}</h3>
+                        <div className="text-gray-500 max-w-2xl mx-auto text-sm" dangerouslySetInnerHTML={{ __html: sec.deskripsi_section || '' }}></div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                        {sec.items && sec.items.length > 0 ? (
+                          sec.items.map(item => (
+                            <div key={item.id} className="bg-white rounded-3xl overflow-hidden border shadow-md hover:shadow-xl transition-shadow flex flex-col justify-between">
+                              <div className="p-4 bg-purple-900 text-white flex justify-between items-center">
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 px-2.5 py-0.5 rounded-full">{item.tipe}</span>
+                                <h4 className="font-bold text-sm truncate max-w-[200px]">{item.judul || 'Postingan Sosmed'}</h4>
+                              </div>
+                              <div className="p-4 flex-1 flex flex-col justify-center bg-gray-50 min-h-[220px]">
+                                {item.tipe === 'instagram' && (
+                                  <div className="text-center">
+                                    <span className="text-3xl block mb-2">📸</span>
+                                    <a href={item.url_media} target="_blank" rel="noopener noreferrer" className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-2.5 px-4 rounded-xl inline-block shadow">Buka Postingan Instagram ↗</a>
+                                  </div>
+                                )}
+                                {item.tipe === 'youtube' && (
+                                  <div className="text-center">
+                                    <span className="text-3xl block mb-2">▶️</span>
+                                    <a href={item.url_media} target="_blank" rel="noopener noreferrer" className="text-xs bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl inline-block shadow">Tonton Video YouTube ↗</a>
+                                  </div>
+                                )}
+                                {item.tipe === 'tiktok' && (
+                                  <div className="text-center">
+                                    <span className="text-3xl block mb-2">🎵</span>
+                                    <a href={item.url_media} target="_blank" rel="noopener noreferrer" className="text-xs bg-black text-white font-bold py-2.5 px-4 rounded-xl inline-block shadow">Lihat TikTok ↗</a>
+                                  </div>
+                                )}
+                              </div>
+                              {item.keterangan && (
+                                <div className="p-4 border-t bg-white">
+                                  <p className="text-xs text-gray-600">{item.keterangan}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-gray-400 italic bg-white rounded-3xl border">Belum ada postingan sosial media yang ditambahkan di galeri ini.</div>
+                        )}
+                      </div>
+                    </section>
+                  );
+                }
                 else if (key === 'paket') {
                   return (
                     <section key={sec.id} className="max-w-6xl mx-auto px-4 py-20 relative z-20">
                       <div className="text-center mb-12">
                         <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">{sec.nama_section || 'Program Belajar Unggulan'}</h3>
-                        <p className="text-gray-500 mt-2 whitespace-pre-wrap">{sec.deskripsi_section || 'Pilih paket bimbingan yang tepat untuk buah hati Anda.'}</p>
+                        <div className="text-gray-500 mt-2" dangerouslySetInnerHTML={{ __html: sec.deskripsi_section || 'Pilih paket bimbingan yang tepat untuk buah hati Anda.' }}></div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {paketList.map(paket => (
@@ -1370,7 +1455,7 @@ export default function App() {
                         <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-amber-400 to-[#581878]"></div>
                         <div className="text-center mb-10">
                           <h3 className="text-4xl font-black text-[#581878] mb-3">{sec.nama_section || 'Daftar Sekarang'}</h3>
-                          <p className="text-gray-500 text-sm whitespace-pre-wrap">{sec.deskripsi_section || 'Isi formulir singkat di bawah untuk mendaftar secara online.'}</p>
+                          <div className="text-gray-500 text-sm" dangerouslySetInnerHTML={{ __html: sec.deskripsi_section || 'Isi formulir singkat di bawah untuk mendaftar secara online.' }}></div>
                         </div>
                         <form onSubmit={handleDaftarSubmit} className="space-y-5">
                           <input type="text" placeholder="Nama Lengkap Siswa" required value={formDaftar.nama_murid} onChange={e => setFormDaftar({...formDaftar, nama_murid: e.target.value})} className="w-full p-4 rounded-2xl border text-sm bg-gray-50 font-bold outline-none focus:border-purple-500 transition" />
@@ -1387,11 +1472,25 @@ export default function App() {
                   );
                 }
                 else {
+                  // RENDER DINAMIS SECTION CUSTOM DENGAN WYSIWYG & GRID ITEMS
                   return (
                     <section key={sec.id} className="py-20 px-4 bg-white text-center border-b border-gray-100">
-                      <div className="max-w-4xl mx-auto space-y-4">
+                      <div className="max-w-5xl mx-auto space-y-6">
                         <h3 className="text-4xl font-black text-[#581878] drop-shadow-sm">{sec.nama_section}</h3>
-                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-base text-left md:text-center px-4">{sec.deskripsi_section}</p>
+                        <div className="text-gray-600 leading-relaxed text-base text-left md:text-center px-4" dangerouslySetInnerHTML={{ __html: sec.deskripsi_section || '' }}></div>
+                        
+                        {sec.items && sec.items.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6 text-left">
+                            {sec.items.map(item => (
+                              <div key={item.id} className="bg-gray-50 p-5 rounded-3xl border shadow-sm">
+                                <span className="text-[10px] font-black uppercase bg-purple-100 text-purple-800 px-2 py-0.5 rounded">{item.tipe}</span>
+                                <h4 className="font-bold text-gray-900 mt-2">{item.judul || 'Item Konten'}</h4>
+                                <p className="text-xs text-gray-500 mt-1">{item.keterangan}</p>
+                                <a href={item.url_media} target="_blank" rel="noopener noreferrer" className="mt-4 block text-center text-xs bg-[#581878] text-white font-bold py-2 rounded-xl">Lihat Tautan ↗</a>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </section>
                   );
@@ -1522,25 +1621,29 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL EDIT SECTION LANDING PAGE (DENGAN PEMBATASAN EDIT KONTEN UNTUK BAGIAN KUNCI) */}
+      {/* MODAL EDIT SECTION DENGAN WYSIWYG & MANAJEMEN GRID POSTINGAN SOSMED */}
       {showEditSectionModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2rem] w-full max-w-lg p-8 shadow-2xl">
-            <h3 className="font-black text-xl text-[#581878] mb-2">
-              {['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) ? 'Pengaturan Visibilitas Section' : 'Edit Konten & Section Landing'}
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              {['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) 
-                ? 'ℹ️ Section sistem ini diatur agar hanya dapat diaktifkan atau dinonaktifkan (Enable/Disable).'
-                : 'Gunakan tombol Enter untuk membuat paragraf atau baris baru.'}
-            </p>
+          <div className="bg-white rounded-[2rem] w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-black text-xl text-[#581878]">
+                {['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) ? 'Pengaturan Visibilitas Section' : 'Edit Konten (WYSIWYG) & Grid Galeri'}
+              </h3>
+              <button onClick={() => setShowEditSectionModal(false)} className="text-gray-400 font-bold">✕</button>
+            </div>
             
-            <form onSubmit={handleSimpanEditSection} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold block mb-1">Key Section:</label>
-                <input type="text" readOnly value={editSectionData.section_key} className="w-full border p-3 rounded-2xl text-xs bg-gray-200 font-bold text-gray-600" />
+            <form onSubmit={handleSimpanEditSection} className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold block mb-1">Key Section:</label>
+                  <input type="text" readOnly value={editSectionData.section_key} className="w-full border p-3 rounded-xl text-xs bg-gray-200 font-bold text-gray-600" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">Urutan Tampilan:</label>
+                  <input type="number" required value={editSectionData.urutan} onChange={e => setEditSectionData({...editSectionData, urutan: parseInt(e.target.value)})} className="w-full border p-3 rounded-xl text-sm font-bold bg-gray-50" />
+                </div>
               </div>
-              
+
               <div>
                 <label className="text-xs font-bold block mb-1">Judul Section Utama:</label>
                 <input 
@@ -1555,28 +1658,59 @@ export default function App() {
 
               {!['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) && (
                 <div>
-                  <label className="text-xs font-bold block mb-1">Isi Konten / Deskripsi (Mendukung Multi-paragraf & Enter):</label>
-                  <textarea 
-                    value={editSectionData.deskripsi_section} 
-                    onChange={e => setEditSectionData({...editSectionData, deskripsi_section: e.target.value})} 
-                    className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50 outline-none focus:border-purple-600 font-sans" 
-                    rows="6" 
-                    placeholder="Tulis deskripsi atau isi konten di sini..."
-                  ></textarea>
+                  <label className="text-xs font-bold block mb-1">Isi Deskripsi / Konten (WYSIWYG Editor):</label>
+                  <div className="border border-gray-300 rounded-2xl overflow-hidden bg-white">
+                    <div className="bg-gray-100 p-2 border-b flex gap-2">
+                      <button type="button" onClick={() => formatTextWysiwyg('bold')} className="px-3 py-1 bg-white border rounded font-bold text-xs hover:bg-gray-200">B</button>
+                      <button type="button" onClick={() => formatTextWysiwyg('italic')} className="px-3 py-1 bg-white border rounded italic text-xs hover:bg-gray-200">I</button>
+                      <button type="button" onClick={() => formatTextWysiwyg('underline')} className="px-3 py-1 bg-white border rounded underline text-xs hover:bg-gray-200">U</button>
+                      <button type="button" onClick={() => formatTextWysiwyg('insertUnorderedList')} className="px-3 py-1 bg-white border rounded text-xs hover:bg-gray-200">• List</button>
+                    </div>
+                    <div 
+                      id="wysiwyg-editor-area" 
+                      contentEditable={true} 
+                      className="p-4 min-h-[140px] max-h-60 overflow-y-auto outline-none text-sm font-sans"
+                      onInput={(e) => setEditSectionData({...editSectionData, deskripsi_section: e.currentTarget.innerHTML})}
+                    ></div>
+                  </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold block mb-1">Urutan Tampilan:</label>
-                  <input type="number" required value={editSectionData.urutan} onChange={e => setEditSectionData({...editSectionData, urutan: parseInt(e.target.value)})} className="w-full border p-3 rounded-2xl text-sm font-bold bg-gray-50" />
+              {/* MANAJEMEN GRID POSTINGAN SOSIAL MEDIA (IG / YOUTUBE / TIKTOK) */}
+              {!['cek_laporan', 'paket', 'pendaftaran'].includes(editSectionData.section_key) && (
+                <div className="border p-5 rounded-2xl bg-purple-50/50 space-y-4">
+                  <h4 className="font-black text-purple-900 text-sm">📱 Tambah Postingan Grid (Instagram / YouTube / TikTok)</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <select value={formItemGaleri.tipe} onChange={e => setFormItemGaleri({...formItemGaleri, tipe: e.target.value})} className="border p-2.5 rounded-xl text-xs bg-white font-bold">
+                      <option value="instagram">Instagram</option>
+                      <option value="youtube">YouTube</option>
+                      <option value="tiktok">TikTok</option>
+                    </select>
+                    <input type="text" placeholder="Judul Postingan" value={formItemGaleri.judul} onChange={e => setFormItemGaleri({...formItemGaleri, judul: e.target.value})} className="border p-2.5 rounded-xl text-xs bg-white" />
+                    <input type="text" placeholder="URL Link Postingan / Embed" value={formItemGaleri.url_media} onChange={e => setFormItemGaleri({...formItemGaleri, url_media: e.target.value})} className="border p-2.5 rounded-xl text-xs bg-white" />
+                  </div>
+                  <input type="text" placeholder="Keterangan singkat postingan..." value={formItemGaleri.keterangan} onChange={e => setFormItemGaleri({...formItemGaleri, keterangan: e.target.value})} className="w-full border p-2.5 rounded-xl text-xs bg-white" />
+                  <button type="button" onClick={handleTambahItemGaleri} className="w-full bg-[#581878] text-white py-2.5 rounded-xl font-bold text-xs shadow">+ Masukkan ke Grid Galeri</button>
+
+                  <div className="space-y-2 pt-2">
+                    <p className="text-xs font-bold text-gray-600">Daftar Postingan dalam Grid ({editSectionData.items?.length || 0}):</p>
+                    <div className="max-h-40 overflow-y-auto space-y-2">
+                      {editSectionData.items?.map(item => (
+                        <div key={item.id} className="p-3 bg-white rounded-xl border flex justify-between items-center text-xs">
+                          <div><span className="font-black uppercase bg-purple-100 text-purple-900 px-2 py-0.5 rounded text-[10px] mr-2">{item.tipe}</span><strong>{item.judul || 'Postingan'}</strong> <span className="text-gray-400 block truncate max-w-xs">{item.url_media}</span></div>
+                          <button type="button" onClick={() => handleHapusItemGaleri(item.id)} className="bg-red-100 text-red-700 px-2.5 py-1 rounded-lg font-bold">Hapus</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center pt-5">
-                  <label className="text-xs flex items-center font-bold cursor-pointer">
-                    <input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> 
-                    Tampilkan Section (Enable)
-                  </label>
-                </div>
+              )}
+
+              <div className="flex items-center pt-2">
+                <label className="text-xs flex items-center font-bold cursor-pointer">
+                  <input type="checkbox" checked={editSectionData.is_aktif} onChange={e => setEditSectionData({...editSectionData, is_aktif: e.target.checked})} className="mr-2 accent-purple-700 w-4 h-4" /> 
+                  Tampilkan Section di Landing Page (Enable)
+                </label>
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t">
@@ -1594,9 +1728,8 @@ export default function App() {
           <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl">
             <h3 className="font-black text-xl text-[#581878] mb-4">Tambah Section Landing Baru</h3>
             <form onSubmit={handleTambahSectionBaru} className="space-y-4">
-              <div><label className="text-xs font-bold block mb-1">Key Identifikasi:</label><input type="text" required placeholder="custom_key" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
+              <div><label className="text-xs font-bold block mb-1">Key Identifikasi:</label><input type="text" required placeholder="galeri_sosmed / custom_key" value={formTambahSection.section_key} onChange={e => setFormTambahSection({...formTambahSection, section_key: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div><label className="text-xs font-bold block mb-1">Judul Section:</label><input type="text" required value={formTambahSection.nama_section} onChange={e => setFormTambahSection({...formTambahSection, nama_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
-              <div><label className="text-xs font-bold block mb-1">Teks / Isian Konten:</label><textarea value={formTambahSection.deskripsi_section} onChange={e => setFormTambahSection({...formTambahSection, deskripsi_section: e.target.value})} className="w-full border p-3.5 rounded-2xl text-sm bg-gray-50" rows="3"></textarea></div>
               <div><label className="text-xs font-bold block mb-1">Urutan Ke-:</label><input type="number" required value={formTambahSection.urutan} onChange={e => setFormTambahSection({...formTambahSection, urutan: parseInt(e.target.value)})} className="w-full border p-3.5 rounded-2xl text-sm font-bold bg-gray-50" /></div>
               <div className="flex justify-end space-x-3 pt-4"><button type="button" onClick={() => setShowTambahSectionModal(false)} className="px-5 py-3 bg-gray-200 rounded-xl text-xs font-bold">Batal</button><button type="submit" className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black shadow">Simpan</button></div>
             </form>
