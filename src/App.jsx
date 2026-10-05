@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 // ==========================================
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
@@ -39,7 +40,6 @@ export default function App() {
   const [daftarPresensiMentor, setDaftarPresensiMentor] = useState([]);
   const [daftarInventaris, setDaftarInventaris] = useState([]);
   const [daftarTransaksiLogistik, setDaftarTransaksiLogistik] = useState([]);
-  const [daftarKonten, setDaftarKonten] = useState([]);
 
   // Filter & Search
   const [filterBulanPresensiMentor, setFilterBulanPresensiMentor] = useState(new Date().toISOString().slice(0, 7));
@@ -148,11 +148,8 @@ export default function App() {
         .ilike('email', authUser.email.trim())
         .maybeSingle();
         
-      if (data) {
-        setCurrentMentorProfile(data);
-      } else {
-        setCurrentMentorProfile(null);
-      }
+      if (data) setCurrentMentorProfile(data);
+      else setCurrentMentorProfile(null);
     }
   }
 
@@ -172,7 +169,7 @@ export default function App() {
 
   async function fetchAllData() {
     try {
-      const [siswa, mentor, periode, presensiS, pemb, presensiM, logistik, transLog, konten] = await Promise.all([
+      const [siswa, mentor, periode, presensiS, pemb, presensiM, logistik, transLog] = await Promise.all([
         supabase.from('siswa').select('*').order('created_at', { ascending: false }),
         supabase.from('mentor').select('*').order('created_at', { ascending: false }),
         supabase.from('periode_belajar').select('*, siswa(nama_murid, status, no_hp), paket_belajar(nama_paket)').order('created_at', { ascending: false }),
@@ -180,8 +177,7 @@ export default function App() {
         supabase.from('pembayaran_siswa').select('*, siswa(nama_murid), periode_belajar(bulan_periode)').order('tanggal_pembayaran', { ascending: false }),
         supabase.from('presensi_mentor').select('*, mentor(nama_mentor)').order('tanggal', { ascending: false }),
         supabase.from('inventaris_logistik').select('*').order('nama_barang', { ascending: true }),
-        supabase.from('transaksi_logistik').select('*, inventaris_logistik(nama_barang)').order('created_at', { ascending: false }),
-        supabase.from('konten_publik').select('*, mentor(nama_mentor)').order('created_at', { ascending: false })
+        supabase.from('transaksi_logistik').select('*, inventaris_logistik(nama_barang)').order('created_at', { ascending: false })
       ]);
 
       if(siswa.data) setDaftarSiswa(siswa.data);
@@ -192,9 +188,23 @@ export default function App() {
       if(presensiM.data) setDaftarPresensiMentor(presensiM.data);
       if(logistik.data) setDaftarInventaris(logistik.data);
       if(transLog.data) setDaftarTransaksiLogistik(transLog.data);
-      if(konten.data) setDaftarKonten(konten.data);
     } catch(err) { console.error('Error fetch global:', err); }
   }
+
+  // Fungsi Inisialisasi Section Default Jika Database Masih Kosong
+  const handleInisialisasiDefaultSections = async () => {
+    try {
+      const defaults = [
+        { section_key: 'hero', nama_section: 'Bimbingan Belajar Modern', deskripsi_section: 'Rumah Hebat, Bersahabat & Berprestasi', urutan: 1, is_aktif: true },
+        { section_key: 'cek_laporan', nama_section: 'Cek Rekap Laporan & Presensi Siswa', deskripsi_section: 'Masukkan Nama Siswa atau No. HP Orang Tua yang terdaftar untuk melihat perkembangan belajar.', urutan: 2, is_aktif: true },
+        { section_key: 'paket', nama_section: 'Program Belajar Unggulan', deskripsi_section: 'Pilih paket bimbingan yang tepat untuk buah hati Anda.', urutan: 3, is_aktif: true },
+        { section_key: 'pendaftaran', nama_section: 'Daftar Sekarang', deskripsi_section: 'Isi formulir singkat di bawah untuk mendaftar secara online.', urutan: 4, is_aktif: true }
+      ];
+      await supabase.from('landing_sections').insert(defaults);
+      showToast('Section default berhasil dimuat!');
+      fetchPengaturanWeb();
+    } catch(err) { showToast('Gagal inisialisasi: ' + err.message, 'error'); }
+  };
 
   const handleCariLaporanOrtu = (e) => {
     e.preventDefault();
@@ -494,11 +504,7 @@ export default function App() {
       setShowTambahBarangModal(false);
       setFormBarangBaru({ nama_barang: '', kategori: 'Modul', stok: 0, harga_satuan: 0, deskripsi: '' });
       fetchAllData();
-    } catch(err) {
-      showToast('Gagal tambah barang: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
+    } catch(err) { showToast('Gagal tambah barang: ' + err.message, 'error'); } finally { setLoading(false); }
   };
 
   const openTransaksiModal = (barang, tipe) => {
@@ -521,21 +527,14 @@ export default function App() {
       if (errInv) throw errInv;
 
       const { error: errTrans } = await supabase.from('transaksi_logistik').insert([{ 
-        barang_id: barang.id, 
-        tipe_transaksi: formTransaksi.tipe_transaksi, 
-        jumlah: jumlahTrans, 
-        keterangan: formTransaksi.keterangan || '-' 
+        barang_id: barang.id, tipe_transaksi: formTransaksi.tipe_transaksi, jumlah: jumlahTrans, keterangan: formTransaksi.keterangan || '-' 
       }]);
       if (errTrans) throw errTrans;
 
       showToast(`Transaksi ${formTransaksi.tipe_transaksi} (${jumlahTrans} Pcs) berhasil dicatat.`);
       setShowTransaksiModal(false);
       fetchAllData();
-    } catch(err) { 
-      showToast('Gagal transaksi: ' + err.message, 'error'); 
-    } finally {
-      setLoading(false);
-    }
+    } catch(err) { showToast('Gagal transaksi: ' + err.message, 'error'); } finally { setLoading(false); }
   };
 
   const handleSimpanPengaturanWeb = async (e) => {
@@ -562,25 +561,21 @@ export default function App() {
       }).eq('id', editSectionData.id);
       
       if (error) throw error;
-      showToast('Pengaturan section landing page diperbarui!');
+      showToast('Section landing page diperbarui!');
       setShowEditSectionModal(false);
       await fetchPengaturanWeb();
-    } catch(err) {
-      showToast('Gagal memperbarui section: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
+    } catch(err) { showToast('Gagal memperbarui section: ' + err.message, 'error'); } finally { setLoading(false); }
   };
 
   const handleUpdateUrutanSection = async (secId, newUrutan) => {
     await supabase.from('landing_sections').update({ urutan: parseInt(newUrutan) || 1 }).eq('id', secId);
-    showToast('Urutan section berhasil diperbarui!');
+    showToast('Urutan section diperbarui!');
     fetchPengaturanWeb();
   };
 
   const handleToggleSection = async (secId, currentStatus) => {
     await supabase.from('landing_sections').update({ is_aktif: !currentStatus }).eq('id', secId);
-    showToast('Status section diperbarui!');
+    showToast('Status visibilitas section diperbarui!');
     fetchPengaturanWeb();
   };
 
@@ -603,11 +598,7 @@ export default function App() {
 
   const handlePilihSiswaPresensi = (periodeObj) => {
     const jumlahHadirSebelumnya = daftarPresensiSiswa.filter(ps => ps.periode_id === periodeObj.id).length;
-    setNewPresensiSiswa(prev => ({
-      ...prev,
-      periode_id: periodeObj.id,
-      pertemuan_ke: jumlahHadirSebelumnya + 1
-    }));
+    setNewPresensiSiswa(prev => ({ ...prev, periode_id: periodeObj.id, pertemuan_ke: jumlahHadirSebelumnya + 1 }));
     setSearchSiswaPresensi(periodeObj.siswa?.nama_murid || '');
     setIsDropdownPresensiOpen(false);
   };
@@ -993,22 +984,37 @@ export default function App() {
 
                       <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-4">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                          <div><h3 className="text-xl font-black text-gray-900">Pengaturan Tampilan & Urutan Landing Page</h3><p className="text-xs text-gray-500">Urutan & visibilitas akan menyesuaikan secara real-time.</p></div>
-                          <button onClick={() => setShowTambahSectionModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Section Landing</button>
+                          <div>
+                            <h3 className="text-xl font-black text-gray-900">Pengaturan Tampilan & Urutan Landing Page</h3>
+                            <p className="text-xs text-gray-500">Kelola visibilitas (tampil/sembunyi) dan urutan section publik.</p>
+                          </div>
+                          <div className="flex gap-2">
+                            {landingSections.length === 0 && (
+                              <button onClick={handleInisialisasiDefaultSections} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">⚡ Load Default Sections</button>
+                            )}
+                            <button onClick={() => setShowTambahSectionModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Section Landing</button>
+                          </div>
                         </div>
 
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-sm">
-                            <thead className="bg-purple-50"><tr><th className="p-3 text-center">Urutan</th><th className="p-3">Nama Section</th><th className="p-3 text-center">Status Tampil</th><th className="p-3 text-center rounded-tr-xl">Aksi</th></tr></thead>
+                            <thead className="bg-purple-50"><tr><th className="p-3 text-center">Urutan</th><th className="p-3">Key & Nama Section</th><th className="p-3 text-center">Status Tampil</th><th className="p-3 text-center rounded-tr-xl">Aksi</th></tr></thead>
                             <tbody>
                               {[...landingSections].sort((a,b) => (a.urutan||0) - (b.urutan||0)).map(sec => (
                                 <tr key={sec.id} className="border-t hover:bg-gray-50 transition-colors">
                                   <td className="p-3 text-center"><input type="number" value={sec.urutan} onChange={(e) => { const val = e.target.value; setLandingSections(prev => prev.map(s => s.id === sec.id ? { ...s, urutan: val } : s)); }} onBlur={(e) => handleUpdateUrutanSection(sec.id, e.target.value)} className="w-12 text-center border p-1 rounded-lg font-black text-purple-900 bg-purple-50" /></td>
-                                  <td className="p-3 font-bold text-gray-900">{sec.nama_section} <span className="block text-[10px] text-gray-400 font-normal truncate max-w-xs">{sec.deskripsi_section}</span></td>
+                                  <td className="p-3">
+                                    <span className="text-[10px] font-black uppercase bg-gray-100 text-gray-600 px-2 py-0.5 rounded mr-2">{sec.section_key}</span>
+                                    <span className="font-bold text-gray-900">{sec.nama_section}</span>
+                                    <p className="text-xs text-gray-400 truncate max-w-sm mt-0.5">{sec.deskripsi_section}</p>
+                                  </td>
                                   <td className="p-3 text-center"><button onClick={() => handleToggleSection(sec.id, sec.is_aktif)} className={`px-3 py-1 rounded-full text-xs font-black transition ${sec.is_aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'}`}>{sec.is_aktif ? '✓ Aktif' : '✕ Non-Aktif'}</button></td>
                                   <td className="p-3 text-center space-x-2"><button onClick={() => openEditSectionModal(sec)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold">Edit</button> <button onClick={() => handleHapusSection(sec.id)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold">Hapus</button></td>
                                 </tr>
                               ))}
+                              {landingSections.length === 0 && (
+                                <tr><td colSpan="4" className="text-center p-8 text-gray-400 italic">Belum ada data section. Klik tombol "Load Default Sections" di atas.</td></tr>
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -1177,11 +1183,12 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* LANDING PAGE PUBLIK */
+          /* LANDING PAGE PUBLIK (Murni berdasarkan tabel landing_sections dan is_aktif/urutan) */
           <div className="space-y-0 bg-[#FFFDF0]">
             {(() => {
-              let renderSections = landingSections && landingSections.length > 0 ? [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => (a.urutan || 0) - (b.urutan || 0)) : [];
-              if (renderSections.length === 0) renderSections = [{ id: 'fb1', section_key: 'hero', urutan: 1 }, { id: 'fb2', section_key: 'cek_laporan', urutan: 2 }, { id: 'fb3', section_key: 'paket', urutan: 3 }, { id: 'fb5', section_key: 'pendaftaran', urutan: 4 }];
+              const renderSections = landingSections && landingSections.length > 0 
+                ? [...landingSections].filter(sec => sec.is_aktif).sort((a, b) => (a.urutan || 0) - (b.urutan || 0)) 
+                : [];
 
               return renderSections.map(sec => {
                 const key = sec.section_key?.toLowerCase().trim();
