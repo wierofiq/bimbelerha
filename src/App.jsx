@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://izifwpviqpyxauafdlge.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6aWZ3cHZpcXB5eGF1YWZkbGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDA2ODYsImV4cCI6MjEwNjUxNjY4Nn0.XpJEgQ3vpGOYmPVi-nsjrSRJI9RfR5kWTN_XsL-TCUU';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
   // 1. STATE MANAGEMENT GLOBAL & AUTH
@@ -74,7 +75,7 @@ export default function App() {
   const [showEditPembayaranModal, setShowEditPembayaranModal] = useState(false);
   const [showTransaksiModal, setShowTransaksiModal] = useState(false);
   
-  // Modal Baru untuk Detail & Edit Periode Siswa
+  // Modal Siswa
   const [showDetailSiswaModal, setShowDetailSiswaModal] = useState(false);
   const [selectedDetailSiswa, setSelectedDetailSiswa] = useState(null);
   const [showEditPeriodeModal, setShowEditPeriodeModal] = useState(false);
@@ -115,12 +116,15 @@ export default function App() {
   };
   const canMentorTransactInventory = currentMentorProfile && (currentMentorProfile.akses_inventaris || currentMentorProfile.delegasi_inventaris);
 
-  // 2. EFFECTS
+  // 2. EFFECTS & PROFILE RESOLUTION
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) determineUserRoleAndProfile(session.user).then(() => setAppReady(true));
-      else setAppReady(true);
+      if (session?.user) {
+        determineUserRoleAndProfile(session.user).then(() => setAppReady(true));
+      } else {
+        setAppReady(true);
+      }
       fetchAllData();
     });
 
@@ -137,12 +141,25 @@ export default function App() {
   }, []);
 
   async function determineUserRoleAndProfile(authUser) {
-    if (authUser.email?.includes('admin')) {
-      setUserRole('admin'); setCurrentMentorProfile(null);
+    if (!authUser || !authUser.email) return;
+    
+    if (authUser.email.toLowerCase().includes('admin')) {
+      setUserRole('admin');
+      setCurrentMentorProfile(null);
     } else {
       setUserRole('guru');
-      const { data } = await supabase.from('mentor').select('*').eq('email', authUser.email).single();
-      if (data) setCurrentMentorProfile(data);
+      const { data, error } = await supabase
+        .from('mentor')
+        .select('*')
+        .ilike('email', authUser.email.trim())
+        .maybeSingle();
+        
+      if (data) {
+        setCurrentMentorProfile(data);
+      } else {
+        console.warn("Profil mentor tidak ditemukan untuk email:", authUser.email);
+        setCurrentMentorProfile(null);
+      }
     }
   }
 
@@ -424,13 +441,6 @@ export default function App() {
     } catch(err) { showToast('Gagal menghapus: ' + err.message, 'error'); }
   };
 
-  const handleToggleStatusMentor = async (mentorId, statusSaatIni) => {
-    const statusBaru = statusSaatIni === 'aktif' ? 'non-aktif' : 'aktif';
-    await supabase.from('mentor').update({ status: statusBaru }).eq('id', mentorId);
-    showToast(`Status mentor diubah ke ${statusBaru}`);
-    fetchAllData();
-  };
-
   const filteredPresensiMentor = daftarPresensiMentor.filter(pm => filterBulanPresensiMentor ? pm.tanggal?.startsWith(filterBulanPresensiMentor) : true);
   const totalJamMentorFiltered = filteredPresensiMentor.reduce((sum, pm) => sum + (Number(pm.total_jam) || 0), 0);
 
@@ -557,6 +567,29 @@ export default function App() {
     fetchPengaturanWeb();
   };
 
+  const handlePilihSiswaPresensi = (periodeObj) => {
+    const jumlahHadirSebelumnya = daftarPresensiSiswa.filter(ps => ps.periode_id === periodeObj.id).length;
+    setNewPresensiSiswa(prev => ({
+      ...prev,
+      periode_id: periodeObj.id,
+      pertemuan_ke: jumlahHadirSebelumnya + 1
+    }));
+    setSearchSiswaPresensi(periodeObj.siswa?.nama_murid || '');
+    setIsDropdownPresensiOpen(false);
+  };
+
+  const handleTambahPresensiSiswa = async (e) => {
+    e.preventDefault();
+    if (!newPresensiSiswa.periode_id) return showToast('Pilih siswa aktif dari dropdown!', 'error');
+    if (!currentMentorProfile?.id) return showToast('Sesi login mentor tidak valid.', 'error');
+    const { error } = await supabase.from('presensi_siswa').insert([{ periode_id: newPresensiSiswa.periode_id, mentor_id: currentMentorProfile.id, pertemuan_ke: newPresensiSiswa.pertemuan_ke, tanggal_pertemuan: newPresensiSiswa.tanggal_pertemuan, is_hadir: newPresensiSiswa.status_kehadiran === 'Hadir', jurnal_materi: `[${newPresensiSiswa.status_kehadiran}] ${newPresensiSiswa.jurnal_materi}` }]);
+    if (error) { showToast('Gagal presensi: ' + error.message, 'error'); return; }
+    showToast('Presensi berhasil dicatat!');
+    setNewPresensiSiswa(prev => ({ ...prev, jurnal_materi: '' }));
+    setSearchSiswaPresensi('');
+    fetchAllData();
+  };
+
   const jamBulanIniCurrentMentor = daftarPresensiMentor.filter(pm => pm.mentor_id === currentMentorProfile?.id && pm.tanggal?.startsWith(new Date().toISOString().slice(0, 7))).reduce((sum, pm) => sum + (Number(pm.total_jam) || 0), 0);
   const estimasiPenghasilanBulanIni = jamBulanIniCurrentMentor * (Number(currentMentorProfile?.honor_per_jam) || 0);
 
@@ -655,7 +688,6 @@ export default function App() {
                         <button onClick={() => setShowTambahSiswaModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow">+ Tambah Siswa Manual</button>
                       </div>
 
-                      {/* TAB PERSETUJUAN BARU */}
                       {siswaSubTab === 'persetujuan' && (
                         <div className="bg-white rounded-3xl p-6 border shadow-sm overflow-x-auto">
                           <table className="w-full text-left text-sm">
@@ -691,7 +723,6 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* TAB DATA SISWA AKTIF */}
                       {siswaSubTab === 'data' && (
                         <div className="bg-white rounded-3xl p-6 border shadow-sm overflow-x-auto">
                           <table className="w-full text-left text-sm">
@@ -935,6 +966,163 @@ export default function App() {
                   )}
                 </>
               )}
+
+              {/* PORTAL GURU / MENTOR */}
+              {userRole === 'guru' && (
+                <>
+                  {!currentMentorProfile ? (
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border text-center space-y-3">
+                      <p className="text-amber-600 font-bold">⚠️ Perhatian: Email akun Anda belum terdaftar pada tabel database `mentor`.</p>
+                      <p className="text-xs text-gray-500">Silakan minta Administrator untuk mendaftarkan email Anda melalui menu Manajemen Mentor.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {guruTab === 'beranda' && (
+                        <div className="space-y-6">
+                          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div>
+                              <span className="bg-amber-400 text-purple-950 font-black text-[10px] px-3 py-1 rounded-full uppercase">Portal Pengajar</span>
+                              <h2 className="text-3xl font-black mt-2">Selamat Datang, {currentMentorProfile?.nama_mentor || 'Pengajar'} 👋</h2>
+                              <p className="text-purple-200 text-sm mt-1">Sistem Informasi & Administrasi ErHa</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white p-6 rounded-3xl shadow-sm border border-emerald-100 flex justify-between items-center">
+                              <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase">Perkiraan Penghasilan Bulan Ini</p>
+                                <h3 className="text-3xl font-black text-emerald-600 mt-1">Rp {estimasiPenghasilanBulanIni.toLocaleString('id-ID')}</h3>
+                                <p className="text-[10px] text-gray-400 mt-1">*Tarif: Rp {(Number(currentMentorProfile?.honor_per_jam)||0).toLocaleString('id-ID')}/jam</p>
+                              </div>
+                              <span className="text-4xl">💰</span>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-3xl shadow-sm border border-purple-100 flex justify-between items-center">
+                              <div>
+                                <p className="text-xs font-bold text-gray-400 uppercase">Total Mengajar Bulan Ini</p>
+                                <h3 className="text-3xl font-black text-purple-900 mt-1">{jamBulanIniCurrentMentor} Jam</h3>
+                                <p className="text-[10px] text-purple-600 font-bold mt-1">Terisi otomatis dari rekap harian</p>
+                              </div>
+                              <span className="text-4xl">⏰</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {guruTab === 'presensi' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-5">
+                            <h3 className="text-xl font-black text-[#581878]">Input Presensi Kelas</h3>
+                            <form onSubmit={handleTambahPresensiSiswa} className="space-y-4">
+                              <div className="relative">
+                                <label className="text-xs font-bold text-gray-600 mb-1 block">Cari / Pilih Siswa Aktif:</label>
+                                <input type="text" placeholder="Ketik nama siswa..." value={searchSiswaPresensi} onFocus={() => setIsDropdownPresensiOpen(true)} onChange={e => { setSearchSiswaPresensi(e.target.value); setIsDropdownPresensiOpen(true); setNewPresensiSiswa(prev => ({...prev, periode_id: ''})); }} className="w-full border p-4 rounded-2xl text-sm outline-none focus:border-purple-600 bg-gray-50 font-bold" />
+                                {isDropdownPresensiOpen && (
+                                  <div className="absolute z-10 w-full mt-1 bg-white border border-purple-200 rounded-2xl shadow-xl max-h-48 overflow-y-auto">
+                                    {daftarPeriode.filter(p => p.siswa?.status === 'aktif' && p.status_periode === 'berjalan').filter(p => p.siswa?.nama_murid?.toLowerCase().includes((searchSiswaPresensi || '').toLowerCase())).map(p => (
+                                      <div key={p.id} onClick={() => handlePilihSiswaPresensi(p)} className="p-4 cursor-pointer hover:bg-purple-50 border-b text-sm font-bold text-[#581878]">{p.siswa?.nama_murid} <span className="text-xs font-normal text-gray-500">({p.paket_belajar?.nama_paket})</span></div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Sesi Pertemuan Ke-:</label><input type="text" readOnly value={`Pertemuan Ke- ${newPresensiSiswa.pertemuan_ke}`} className="border p-4 rounded-2xl w-full bg-gray-200 font-black text-center text-sm text-[#581878]" /></div>
+                              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Tanggal Pertemuan:</label><input type="date" required value={newPresensiSiswa.tanggal_pertemuan} onChange={e => setNewPresensiSiswa({...newPresensiSiswa, tanggal_pertemuan: e.target.value})} className="border p-4 rounded-2xl w-full text-sm bg-gray-50 font-bold" /></div>
+                              <div>
+                                <label className="text-xs font-bold text-gray-600 mb-1 block">Kehadiran:</label>
+                                <select value={newPresensiSiswa.status_kehadiran} onChange={e => setNewPresensiSiswa({...newPresensiSiswa, status_kehadiran: e.target.value})} className="border p-4 rounded-2xl w-full text-sm font-bold bg-gray-50">
+                                  <option value="Hadir">✅ Hadir</option>
+                                  <option value="Izin">📩 Izin</option>
+                                </select>
+                              </div>
+                              <div><label className="text-xs font-bold text-gray-600 mb-1 block">Jurnal Materi (Singkat):</label><input type="text" placeholder="Contoh: Operasi Hitung Campuran" required value={newPresensiSiswa.jurnal_materi} onChange={e => setNewPresensiSiswa({...newPresensiSiswa, jurnal_materi: e.target.value})} className="border p-4 rounded-2xl w-full text-sm bg-gray-50 font-bold" /></div>
+                              <button type="submit" className="w-full bg-[#581878] hover:bg-purple-900 text-white py-4 rounded-2xl font-black shadow-lg transition">Simpan Presensi Kelas</button>
+                            </form>
+                          </div>
+
+                          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-5">
+                            <div className="flex justify-between items-center">
+                              <h3 className="text-lg font-black text-gray-900">Rekap Siswa Harian</h3>
+                              <input type="date" value={customTanggalPresensiGuru} onChange={e => setCustomTanggalPresensiGuru(e.target.value)} className="border p-2 rounded-xl text-xs font-bold bg-purple-50 text-purple-900" />
+                            </div>
+
+                            <div className="space-y-3">
+                              {daftarPresensiSiswa.filter(ps => ps.tanggal_pertemuan === customTanggalPresensiGuru).map(ps => (
+                                <div key={ps.id} className="border p-4 rounded-2xl bg-gray-50 flex justify-between items-center">
+                                  <div>
+                                    <h5 className="font-bold text-sm text-gray-900">{ps.jurnal_materi}</h5>
+                                    <p className="text-xs text-gray-400 mt-0.5">Sesi Ke-{ps.pertemuan_ke} | Oleh: {ps.mentor?.nama_mentor}</p>
+                                  </div>
+                                  <span className="text-xs font-black bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">{ps.is_hadir ? 'Hadir' : 'Izin'}</span>
+                                </div>
+                              ))}
+                              {daftarPresensiSiswa.filter(ps => ps.tanggal_pertemuan === customTanggalPresensiGuru).length === 0 && (
+                                <p className="text-xs text-gray-400 italic text-center py-8">Belum ada presensi tercatat pada tanggal {formatTanggalIndo(customTanggalPresensiGuru)}.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {guruTab === 'modul' && (
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border space-y-6">
+                          <div>
+                            <h3 className="text-2xl font-black text-gray-900">Modul & Stok Logistik 📦</h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {canMentorTransactInventory 
+                                ? '✅ Anda memiliki hak akses khusus untuk mengatur transaksi stok barang.' 
+                                : 'ℹ️ Anda berada dalam mode lihat stok (Hak akses transaksi belum didelegasikan).'}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {daftarInventaris.map(b => (
+                              <div key={b.id} className="border p-5 rounded-3xl bg-gray-50 flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">{b.kategori}</span>
+                                  <h5 className="font-bold text-gray-900 mt-2">{b.nama_barang}</h5>
+                                </div>
+                                <div className="mt-4">
+                                  <p className="text-lg font-black text-gray-800 text-center bg-white border p-2 rounded-xl mb-3">Stok: {b.stok}</p>
+                                  {canMentorTransactInventory && (
+                                    <div className="flex gap-2">
+                                      <button onClick={() => openTransaksiModal(b, 'Masuk')} className="flex-1 bg-emerald-600 text-white text-xs font-bold py-2 rounded-xl">[+] IN</button>
+                                      <button onClick={() => openTransaksiModal(b, 'Keluar')} className="flex-1 bg-red-600 text-white text-xs font-bold py-2 rounded-xl">[-] OUT</button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {guruTab === 'profil' && (
+                        <div className="max-w-xl mx-auto space-y-6">
+                          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                            <h3 className="text-xl font-black text-gray-900">Profil Mentor</h3>
+                            <div className="space-y-2 text-sm">
+                              <p><strong>Nama:</strong> {currentMentorProfile?.nama_mentor}</p>
+                              <p><strong>Email:</strong> {currentMentorProfile?.email}</p>
+                              <p><strong>No HP:</strong> {currentMentorProfile?.no_hp}</p>
+                              <p><strong>Honor Per Jam:</strong> Rp {(Number(currentMentorProfile?.honor_per_jam)||0).toLocaleString('id-ID')}</p>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                            <h3 className="text-xl font-black text-[#581878]">Ganti Password Akun</h3>
+                            <form onSubmit={handleGantiPasswordMentor} className="space-y-4">
+                              <input type="password" placeholder="Password Baru" required value={formGantiPassword.passwordBaru} onChange={e => setFormGantiPassword({...formGantiPassword, passwordBaru: e.target.value})} className="w-full border p-4 rounded-2xl text-sm font-bold bg-gray-50" />
+                              <input type="password" placeholder="Konfirmasi Password Baru" required value={formGantiPassword.konfirmasiPassword} onChange={e => setFormGantiPassword({...formGantiPassword, konfirmasiPassword: e.target.value})} className="w-full border p-4 rounded-2xl text-sm font-bold bg-gray-50" />
+                              <button type="submit" disabled={loading} className="w-full bg-[#581878] hover:bg-purple-900 text-white py-4 rounded-2xl font-black shadow-lg">Perbarui Password Supabase Auth</button>
+                            </form>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
             </div>
           </div>
         ) : (
@@ -1039,7 +1227,7 @@ export default function App() {
                   );
                 }
                 else {
-                  // RENDER DINAMIS SECTION CUSTOM LAINNYA
+                  // RENDER DINAMIS SECTION CUSTOM
                   return (
                     <section key={sec.id} className="py-20 px-4 bg-white text-center border-b border-gray-100">
                       <div className="max-w-4xl mx-auto space-y-4">
@@ -1115,7 +1303,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL TAMBAH SISWA MANUAL (ADMIN) */}
+      {/* MODAL TAMBAH SISWA MANUAL */}
       {showTambahSiswaModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1149,7 +1337,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL EDIT MENTOR (Delegasi) */}
+      {/* MODAL EDIT MENTOR */}
       {showEditMentorModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
